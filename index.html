@@ -315,12 +315,13 @@
         data: {
           labels: ['Входящий', 'Исходящий', 'Неотвеченный'],
           datasets: [{
-data: [
-  stats.typeMap['Входящий'] || 0,
-  stats.typeMap['Исходящий'] || 0,
-  stats.typeMap['Неотвеченный'] || 0
-]
-  backgroundColor: ['#10b981', '#3b82f6', '#ef4444']
+            label: 'Тип звонка',
+            data: [
+              stats.typeMap['Входящий'] || 0,
+              stats.typeMap['Исходящий'] || 0,
+              stats.typeMap['Неотвеченный'] || 0
+            ],
+            backgroundColor: ['#10b981', '#3b82f6', '#ef4444']
           }]
         },
         options: {
