@@ -16,14 +16,14 @@
     .filter-title{color:var(--muted);font-size:.9rem}
 
     .period-card{width:100%;display:grid;gap:10px}
-    .period-shell{background:#eceff4;border-radius:16px;padding:8px;display:flex;align-items:center;gap:6px;overflow-x:auto;flex-wrap:wrap}
+    .period-shell{background:#eceff4;border-radius:16px;padding:8px;display:flex;align-items:flex-end;gap:8px;overflow-x:auto;white-space:nowrap}
     .period-pill{border:0;border-radius:999px;background:#e3e7ee;color:#4b5563;padding:9px 16px;white-space:nowrap;cursor:pointer;height:38px;transition:.2s ease;font-size:.92rem}
     .period-pill:hover{background:#dfe4ec;color:#111827}
     .period-pill.active{background:#fff;color:#111827;font-weight:600;box-shadow:0 4px 14px rgba(15,23,42,.11)}
     .custom-range-wrap{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 8px 0 10px;height:38px;border-radius:999px;background:#e3e7ee;color:#374151;cursor:pointer;position:relative;flex-shrink:0}
     .custom-range-wrap.active{background:#fff;box-shadow:0 4px 14px rgba(15,23,42,.11);font-weight:600;color:#111827}
     .custom-date-pop{display:none;position:absolute;top:46px;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:var(--shadow);padding:10px;z-index:10;width:290px}
-    .custom-date-pop.open{display:grid;gap:8px}.date-range{display:flex;align-items:end;gap:8px;margin-left:auto}
+    .custom-date-pop.open{display:grid;gap:8px}.date-range{display:flex;align-items:end;gap:8px;margin-left:auto;flex-shrink:0}
     input[type="date"], select{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;background:#fff;color:#111827}
 
     .manager-tags{display:flex;flex-wrap:wrap;gap:8px}
@@ -40,7 +40,7 @@
     .chart-card h2{font-size:1rem;font-weight:600;color:#111827}.chart-wrap{position:relative;flex:1;min-height:240px}
     .line-chart{grid-column:span 12}.pie-chart{grid-column:span 5}.bar-chart{grid-column:span 7}
     .empty-state{display:none;background:var(--card);border-radius:var(--radius);border:1px dashed #cbd5e1;padding:24px;text-align:center;color:var(--muted);font-size:1.1rem}
-    @media (max-width:900px){.pie-chart,.bar-chart,.line-chart{grid-column:span 12}.date-range{width:100%;margin-left:0;flex-wrap:wrap}}
+    @media (max-width:900px){.pie-chart,.bar-chart,.line-chart{grid-column:span 12}.period-shell{flex-wrap:wrap;white-space:normal}.date-range{width:100%;margin-left:0;flex-wrap:wrap}}
   </style>
 </head>
 <body>
@@ -56,17 +56,17 @@
           <button class="period-pill" data-period="week">Неделя</button>
           <button class="period-pill active" data-period="month">Месяц</button>
           <button class="period-pill" data-period="quarter">Квартал</button>
-        </div>
-        <div class="date-range">
-          <div>
-            <div class="filter-title">Начало периода</div>
-            <input type="date" id="dateFrom" />
+          <div class="date-range">
+            <div>
+              <div class="filter-title">Начало периода</div>
+              <input type="date" id="dateFrom" />
+            </div>
+            <div>
+              <div class="filter-title">Конец периода</div>
+              <input type="date" id="dateTo" />
+            </div>
+            <button id="applyCustomRangeBtn" class="period-pill" style="width:max-content;">Ок</button>
           </div>
-          <div>
-            <div class="filter-title">Конец периода</div>
-            <input type="date" id="dateTo" />
-          </div>
-          <button id="applyCustomRangeBtn" class="period-pill" style="width:max-content;">Ок</button>
         </div>
       </div>
     </section>
