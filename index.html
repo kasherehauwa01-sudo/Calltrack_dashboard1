@@ -45,7 +45,7 @@
 </head>
 <body>
   <main class="container">
-    <h1>Аналитика звонков отдела продаж</h1>
+    <h1>Общая аналитика активности ОП</h1>
 
     <section class="filter-card period-card">
       <div>
@@ -89,7 +89,7 @@
     <section class="charts-grid" id="chartsGrid">
       <article class="chart-card line-chart">
         <div class="chart-head">
-          <h2 id="trendTitle">Звонки по дням</h2>
+          <h2 id="trendTitle">Звонки</h2>
           <select id="groupByFilter">
             <option value="hour">По часам</option>
             <option value="day" selected>По дням</option>
@@ -100,7 +100,7 @@
         <div class="chart-wrap"><canvas id="callsByDayChart"></canvas></div>
       </article>
       <article class="chart-card pie-chart"><h2>Типы звонков</h2><div class="chart-wrap"><canvas id="callTypesChart"></canvas></div></article>
-      <article class="chart-card bar-chart"><h2>Звонки по менеджерам</h2><div class="chart-wrap"><canvas id="managerCallsChart"></canvas></div></article>
+      <article class="chart-card bar-chart"><h2>Менеджеры</h2><div class="chart-wrap"><canvas id="managerCallsChart"></canvas></div></article>
     </section>
   </main>
 
@@ -108,7 +108,7 @@
 const API_URL='https://script.google.com/macros/s/AKfycbxTZ0CxeU2C9VLBnJeBH-0E_5bQqSes4ffekvQGR5J55iTXbBiCXeDA787bFDmu6xtEow/exec';
 const chartInstances=[]; let allCalls=[]; let activePeriod='month'; const activeManagers=new Set();
 const els={managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid')};
-const normalizeDate=(v)=>{if(!v)return null;const d=new Date(v);if(!Number.isNaN(d.getTime()))return d.toISOString().slice(0,10);const raw=String(v).slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:null};
+const normalizeDate=(v)=>{if(!v)return null;const d=new Date(v);if(!Number.isNaN(d.getTime())){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}const raw=String(v).slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:null};
 const normalizeDateTime=(d,t)=>{const v=new Date(`${d||''} ${t||''}`.trim());return Number.isNaN(v.getTime())?null:v};
 const getWeekStartISO=(x)=>{const d=new Date(x);const day=d.getDay()||7;d.setDate(d.getDate()-day+1);return d.toISOString().slice(0,10)};
 const getQuarter=(d)=>Math.floor(d.getMonth()/3)+1;
@@ -122,7 +122,7 @@ function renderCharts(s,g){destroyCharts();const labels=Object.keys(s.byPeriod).
 const showNoData=()=>{els.emptyState.style.display='block';els.chartsGrid.style.display='none'}; const hideNoData=()=>{els.emptyState.style.display='none';els.chartsGrid.style.display='grid'};
 function populateManagers(calls){const managers=[...new Set(calls.map((c)=>((c?.manager||'Не указан').trim()||'Не указан')))].sort();els.managerTags.innerHTML=managers.map((m)=>`<button class="manager-tag active" data-manager="${m}">${m}</button>`).join('');managers.forEach((m)=>activeManagers.add(m));}
 function setActivePeriodPill(p){activePeriod=p;document.querySelectorAll('.period-pill').forEach((b)=>b.classList.toggle('active',b.dataset.period===p));}
-function applyFilters(){const g=els.groupByFilter.value,p=activePeriod,range=getPeriodRange(p);let from=null,to=null;if(p==='custom'){from=els.dateFrom.value?new Date(`${els.dateFrom.value}T00:00:00`):null;to=els.dateTo.value?new Date(`${els.dateTo.value}T23:59:59.999`):null;}else if(range){from=range.from;to=range.to;}const filtered=allCalls.filter((c)=>{const m=(c?.manager||'Не указан').trim()||'Не указан';if(!activeManagers.has(m))return false;if(!from||!to)return true;const norm=normalizeDate(c?.date);const dt=normalizeDateTime(c?.date,c?.time)||(norm?new Date(`${norm}T00:00:00`):null);return inDateRange(dt,from,to)});if(!filtered.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0});destroyCharts();showNoData();return;}hideNoData();const gg=['hour','day','week','month'].includes(g)?g:'day';const s=analyzeCalls(filtered,gg);renderKpi(s);renderCharts(s,gg);}
+function applyFilters(){const g=els.groupByFilter.value,p=activePeriod,range=getPeriodRange(p);let from=null,to=null;if(p==='custom'){from=els.dateFrom.value?new Date(`${els.dateFrom.value}T00:00:00`):null;to=els.dateTo.value?new Date(`${els.dateTo.value}T23:59:59.999`):null;if(!from||!to){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0});destroyCharts();showNoData();return;}}else if(range){from=range.from;to=range.to;}const filtered=allCalls.filter((c)=>{const m=(c?.manager||'Не указан').trim()||'Не указан';if(!activeManagers.has(m))return false;if(!from||!to)return true;const norm=normalizeDate(c?.date);const dt=normalizeDateTime(c?.date,c?.time)||(norm?new Date(`${norm}T00:00:00`):null);if(!dt&&norm){const dayPoint=new Date(`${norm}T12:00:00`);return inDateRange(dayPoint,from,to);}return inDateRange(dt,from,to)});if(!filtered.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0});destroyCharts();showNoData();return;}hideNoData();const gg=['hour','day','week','month'].includes(g)?g:'day';const s=analyzeCalls(filtered,gg);renderKpi(s);renderCharts(s,gg);}
 function bindFilters(){els.periodShell.addEventListener('click',(e)=>{const btn=e.target.closest('.period-pill');if(!btn)return;setActivePeriodPill(btn.dataset.period);applyFilters();});els.applyCustomRangeBtn.addEventListener('click',()=>{setActivePeriodPill('custom');applyFilters();});els.groupByFilter.addEventListener('change',applyFilters);els.managerTags.addEventListener('click',(e)=>{const tag=e.target.closest('.manager-tag');if(!tag)return;const m=tag.dataset.manager;if(activeManagers.has(m)){activeManagers.delete(m);tag.classList.remove('active');}else{activeManagers.add(m);tag.classList.add('active');}applyFilters();});}
 async function initDashboard(){try{const response=await fetch(API_URL);const raw=await response.json();allCalls=Array.isArray(raw)?raw:[];if(!allCalls.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0});destroyCharts();showNoData();return;}populateManagers(allCalls);bindFilters();hideNoData();applyFilters();}catch(error){console.log('Ошибка загрузки/обработки данных:',error);}}
 initDashboard();
