@@ -25,6 +25,10 @@
     .custom-date-pop{display:none;position:absolute;top:46px;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:var(--shadow);padding:10px;z-index:10;width:290px}
     .custom-date-pop.open{display:grid;gap:8px}.date-range{display:flex;align-items:end;gap:8px;margin-left:auto;flex-shrink:0}
     input[type="date"], select{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;background:#fff;color:#111827}
+    .detail-shell{display:flex;gap:6px;flex-wrap:wrap}
+    .detail-pill{border:0;border-radius:999px;background:#e3e7ee;color:#4b5563;padding:7px 14px;cursor:pointer;transition:.2s}
+    .detail-pill.active{background:#fff;color:#111827;font-weight:600;box-shadow:0 4px 14px rgba(15,23,42,.11)}
+    .detail-pill:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
 
     .manager-tags{display:flex;flex-wrap:wrap;gap:8px}
     .manager-tag{border:1px solid #d1d5db;background:#f3f4f6;color:#374151;border-radius:999px;padding:8px 12px;cursor:pointer;transition:.2s}
@@ -92,12 +96,12 @@
       <article class="chart-card line-chart">
         <div class="chart-head">
           <h2 id="trendTitle">Звонки</h2>
-          <select id="groupByFilter">
-            <option value="hour">По часам</option>
-            <option value="day" selected>По дням</option>
-            <option value="week">По неделям</option>
-            <option value="month">По месяцам</option>
-          </select>
+          <div class="detail-shell" id="groupByFilter">
+            <button class="detail-pill" data-group="hour">По часам</button>
+            <button class="detail-pill active" data-group="day">По дням</button>
+            <button class="detail-pill" data-group="week">По неделям</button>
+            <button class="detail-pill" data-group="month">По месяцам</button>
+          </div>
         </div>
         <div class="chart-wrap"><canvas id="callsByDayChart"></canvas></div>
       </article>
@@ -108,7 +112,7 @@
 
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbxTZ0CxeU2C9VLBnJeBH-0E_5bQqSes4ffekvQGR5J55iTXbBiCXeDA787bFDmu6xtEow/exec';
-const chartInstances=[]; let allCalls=[]; let activePeriod='month'; const activeManagers=new Set();
+const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeGroupBy='day'; const activeManagers=new Set();
 const els={managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid')};
 const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>new Date(year, monthIndex, day, hours, minutes, seconds, 0);
 const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
@@ -187,39 +191,47 @@ const showNoData=()=>{els.emptyState.style.display='block';els.chartsGrid.style.
 function populateManagers(calls){const managers=[...new Set(calls.map((c)=>((c?.manager||'Не указан').trim()||'Не указан')))].sort();els.managerTags.innerHTML=managers.map((m)=>`<button class="manager-tag active" data-manager="${m}">${m}</button>`).join('');managers.forEach((m)=>activeManagers.add(m));}
 
 
+
+function setActiveGroupBy(group){
+  activeGroupBy=group;
+  [...els.groupByFilter.querySelectorAll('.detail-pill')].forEach((btn)=>btn.classList.toggle('active', btn.dataset.group===group));
+}
+
 function updateGroupByAvailability(period){
-  const hourOption=[...els.groupByFilter.options].find((o)=>o.value==='hour');
-  const dayOption=[...els.groupByFilter.options].find((o)=>o.value==='day');
-  const monthOption=[...els.groupByFilter.options].find((o)=>o.value==='month');
+  const pills=[...els.groupByFilter.querySelectorAll('.detail-pill')];
+  const byKey=(k)=>pills.find((b)=>b.dataset.group===k);
+  const hourOption=byKey('hour');
+  const dayOption=byKey('day');
+  const monthOption=byKey('month');
   if(hourOption){
     const disableHour=['week','month','quarter','year'].includes(period);
     hourOption.disabled=disableHour;
-    if(disableHour && els.groupByFilter.value==='hour') els.groupByFilter.value='day';
+    if(disableHour && activeGroupBy==='hour') setActiveGroupBy('day');
   }
   if(dayOption){
     const disableDay=(period==='year');
     dayOption.disabled=disableDay;
-    if(disableDay && els.groupByFilter.value==='day') els.groupByFilter.value='month';
+    if(disableDay && activeGroupBy==='day') setActiveGroupBy('month');
   }
   if(monthOption){
     const disableMonth=['week','month'].includes(period);
     monthOption.disabled=disableMonth;
-    if(disableMonth && els.groupByFilter.value==='month') els.groupByFilter.value='day';
+    if(disableMonth && activeGroupBy==='month') setActiveGroupBy('day');
   }
 }
 
 function setGroupByForPeriod(period){
   const map={today:'hour',yesterday:'hour',week:'day',month:'day',quarter:'month',year:'month',custom:'day'};
   const val=map[period]||'day';
-  els.groupByFilter.value=val;
+  setActiveGroupBy(val);
 }
 
 function setActivePeriodPill(p){activePeriod=p;document.querySelectorAll('.period-pill').forEach((b)=>b.classList.toggle('active',b.dataset.period===p));
   updateGroupByAvailability(p);
   setGroupByForPeriod(p);
 }
-function applyFilters(){const g=els.groupByFilter.value,p=activePeriod,range=getPeriodRange(p);let from=null,to=null;if(p==='custom'){from=els.dateFrom.value?startOfDay(parseLocalDate(els.dateFrom.value)):null;to=els.dateTo.value?endOfDay(parseLocalDate(els.dateTo.value)):null;if(!from||!to){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}}else if(range){from=range.from;to=range.to;}const filtered=allCalls.filter((c)=>{const m=(c?.manager||'Не указан').trim()||'Не указан';if(!activeManagers.has(m))return false;if(!from||!to)return true;const norm=normalizeDate(c?.date);const dt=normalizeDateTime(c?.date,c?.time)||(norm?parseLocalDate(norm):null);if(!dt&&norm){const dObj=parseLocalDate(norm);if(!dObj) return false;const dayPoint=createLocalDate(dObj.getFullYear(),dObj.getMonth(),dObj.getDate(),12,0,0);return inDateRange(dayPoint,from,to);}return inDateRange(dt,from,to)});if(!filtered.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}hideNoData();const gg=['hour','day','week','month'].includes(g)?g:'day';const s=analyzeCalls(filtered,gg);renderKpi(s);renderCharts(s,gg);}
-function bindFilters(){els.periodShell.addEventListener('click',(e)=>{const btn=e.target.closest('.period-pill');if(!btn||!btn.dataset.period)return;setActivePeriodPill(btn.dataset.period);applyFilters();});els.applyCustomRangeBtn.addEventListener('click',()=>{setActivePeriodPill('custom');applyFilters();});els.groupByFilter.addEventListener('change',applyFilters);els.managerTags.addEventListener('click',(e)=>{const tag=e.target.closest('.manager-tag');if(!tag)return;const m=tag.dataset.manager;if(activeManagers.has(m)){activeManagers.delete(m);tag.classList.remove('active');}else{activeManagers.add(m);tag.classList.add('active');}applyFilters();});}
+function applyFilters(){const g=activeGroupBy,p=activePeriod,range=getPeriodRange(p);let from=null,to=null;if(p==='custom'){from=els.dateFrom.value?startOfDay(parseLocalDate(els.dateFrom.value)):null;to=els.dateTo.value?endOfDay(parseLocalDate(els.dateTo.value)):null;if(!from||!to){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}}else if(range){from=range.from;to=range.to;}const filtered=allCalls.filter((c)=>{const m=(c?.manager||'Не указан').trim()||'Не указан';if(!activeManagers.has(m))return false;if(!from||!to)return true;const norm=normalizeDate(c?.date);const dt=normalizeDateTime(c?.date,c?.time)||(norm?parseLocalDate(norm):null);if(!dt&&norm){const dObj=parseLocalDate(norm);if(!dObj) return false;const dayPoint=createLocalDate(dObj.getFullYear(),dObj.getMonth(),dObj.getDate(),12,0,0);return inDateRange(dayPoint,from,to);}return inDateRange(dt,from,to)});if(!filtered.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}hideNoData();const gg=['hour','day','week','month'].includes(g)?g:'day';const s=analyzeCalls(filtered,gg);renderKpi(s);renderCharts(s,gg);}
+function bindFilters(){els.periodShell.addEventListener('click',(e)=>{const btn=e.target.closest('.period-pill');if(!btn||!btn.dataset.period)return;setActivePeriodPill(btn.dataset.period);applyFilters();});els.applyCustomRangeBtn.addEventListener('click',()=>{setActivePeriodPill('custom');applyFilters();});els.groupByFilter.addEventListener('click',(e)=>{const btn=e.target.closest('.detail-pill'); if(!btn||btn.disabled) return; setActiveGroupBy(btn.dataset.group); applyFilters();});els.managerTags.addEventListener('click',(e)=>{const tag=e.target.closest('.manager-tag');if(!tag)return;const m=tag.dataset.manager;if(activeManagers.has(m)){activeManagers.delete(m);tag.classList.remove('active');}else{activeManagers.add(m);tag.classList.add('active');}applyFilters();});}
 async function initDashboard(){try{const response=await fetch(API_URL);const raw=await response.json();allCalls=Array.isArray(raw)?raw:[];if(!allCalls.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}populateManagers(allCalls);bindFilters();updateGroupByAvailability(activePeriod);setGroupByForPeriod(activePeriod);hideNoData();applyFilters();}catch(error){console.log('Ошибка загрузки/обработки данных:',error);}}
 initDashboard();
 </script>
