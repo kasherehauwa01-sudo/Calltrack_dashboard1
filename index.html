@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Дашборд отдела продаж</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { --bg:#f4f6fb; --card:#fff; --text:#1f2a37; --muted:#6b7280; --shadow:0 10px 30px rgba(15,23,42,.08); --radius:14px; }
+    *{box-sizing:border-box;margin:0;padding:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+    body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px}
+    .container{max-width:1280px;margin:0 auto;display:grid;gap:20px}
+    h1{font-size:clamp(1.4rem,2.5vw,2rem);font-weight:700}
+
+    .filter-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:14px;border:1px solid #e5e7eb;display:grid;gap:10px}
+    .filter-title{color:var(--muted);font-size:.9rem}
+
+    .period-card{width:100%;display:grid;gap:10px}
+    .period-shell{background:#eceff4;border-radius:16px;padding:8px;display:flex;align-items:flex-end;gap:8px;overflow-x:auto;white-space:nowrap}
+    .period-pill{border:0;border-radius:999px;background:#e3e7ee;color:#4b5563;padding:9px 16px;white-space:nowrap;cursor:pointer;height:38px;transition:.2s ease;font-size:.92rem}
+    .period-pill:hover{background:#dfe4ec;color:#111827}
+    .period-pill.active{background:#fff;color:#111827;font-weight:600;box-shadow:0 4px 14px rgba(15,23,42,.11)}
+    .custom-range-wrap{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 8px 0 10px;height:38px;border-radius:999px;background:#e3e7ee;color:#374151;cursor:pointer;position:relative;flex-shrink:0}
+    .custom-range-wrap.active{background:#fff;box-shadow:0 4px 14px rgba(15,23,42,.11);font-weight:600;color:#111827}
+    .custom-date-pop{display:none;position:absolute;top:46px;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:var(--shadow);padding:10px;z-index:10;width:290px}
+    .custom-date-pop.open{display:grid;gap:8px}.date-range{display:flex;align-items:end;gap:8px;margin-left:auto;flex-shrink:0}
+    input[type="date"], select{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;background:#fff;color:#111827}
+
+    .manager-tags{display:flex;flex-wrap:wrap;gap:8px}
+    .manager-tag{border:1px solid #d1d5db;background:#f3f4f6;color:#374151;border-radius:999px;padding:8px 12px;cursor:pointer;transition:.2s}
+    .manager-tag.active{background:#111827;color:#fff;border-color:#111827}
+
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+    .kpi-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:16px;border:1px solid #e5e7eb}
+    .kpi-title{color:var(--muted);font-size:.9rem;margin-bottom:6px}.kpi-value{font-size:1.5rem;font-weight:700}
+
+    .charts-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .chart-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:16px;border:1px solid #e5e7eb;min-height:320px;display:flex;flex-direction:column;gap:10px}
+    .chart-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+    .chart-card h2{font-size:1rem;font-weight:600;color:#111827}.chart-wrap{position:relative;flex:1;min-height:240px}
+    .line-chart{grid-column:span 12}.pie-chart{grid-column:span 5}.bar-chart{grid-column:span 7}
+    .empty-state{display:none;background:var(--card);border-radius:var(--radius);border:1px dashed #cbd5e1;padding:24px;text-align:center;color:var(--muted);font-size:1.1rem}
+    @media (max-width:900px){.pie-chart,.bar-chart,.line-chart{grid-column:span 12}.period-shell{flex-wrap:wrap;white-space:normal}.date-range{width:100%;margin-left:0;flex-wrap:wrap}}
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Общая аналитика активности ОП</h1>
+
+    <section class="filter-card period-card">
+      <div>
+        <div class="filter-title">Период</div>
+        <div class="period-shell" id="periodShell">
+          <button class="period-pill" data-period="today">Сегодня</button>
+          <button class="period-pill" data-period="yesterday">Вчера</button>
+          <button class="period-pill" data-period="week">Неделя</button>
+          <button class="period-pill active" data-period="month">Месяц</button>
+          <button class="period-pill" data-period="quarter">Квартал</button>
+          <div class="date-range">
+            <div>
+              <div class="filter-title">Начало периода</div>
+              <input type="date" id="dateFrom" />
+            </div>
+            <div>
+              <div class="filter-title">Конец периода</div>
+              <input type="date" id="dateTo" />
+            </div>
+            <button id="applyCustomRangeBtn" class="period-pill" style="width:max-content;">Ок</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="filter-card">
+      <div class="filter-title">Менеджеры</div>
+      <div class="manager-tags" id="managerTags"></div>
+    </section>
+
+    <section class="kpi-grid" id="kpiGrid">
+      <article class="kpi-card"><div class="kpi-title">Всего звонков</div><div class="kpi-value" id="kpiTotal">0</div></article>
+      <article class="kpi-card"><div class="kpi-title">Входящие</div><div class="kpi-value" id="kpiIncoming">0</div></article>
+      <article class="kpi-card"><div class="kpi-title">Исходящие</div><div class="kpi-value" id="kpiOutgoing">0</div></article>
+      <article class="kpi-card" title="Пропущенный — входящий звонок, на который не ответили до завершения вызова."><div class="kpi-title">Пропущенные</div><div class="kpi-value" id="kpiMissed">0</div></article>
+      <article class="kpi-card" title="Неотвеченный звонок — абонент не ответил."><div class="kpi-title">Неотвеченные</div><div class="kpi-value" id="kpiUnanswered">0</div></article>
+      <article class="kpi-card" title="Сброшенный звонок — Менеджер нажал кнопку Сбросить вызов, когда ему пришел звонок."><div class="kpi-title">Сброшенные</div><div class="kpi-value" id="kpiDropped">0</div></article>
+    </section>
+
+    <section class="empty-state" id="emptyState">Нет данных</section>
+
+    <section class="charts-grid" id="chartsGrid">
+      <article class="chart-card line-chart">
+        <div class="chart-head">
+          <h2 id="trendTitle">Звонки</h2>
+          <select id="groupByFilter">
+            <option value="hour">По часам</option>
+            <option value="day" selected>По дням</option>
+            <option value="week">По неделям</option>
+            <option value="month">По месяцам</option>
+          </select>
+        </div>
+        <div class="chart-wrap"><canvas id="callsByDayChart"></canvas></div>
+      </article>
+      <article class="chart-card pie-chart"><h2>Типы звонков</h2><div class="chart-wrap"><canvas id="callTypesChart"></canvas></div></article>
+      <article class="chart-card bar-chart"><h2>Менеджеры</h2><div class="chart-wrap"><canvas id="managerCallsChart"></canvas></div></article>
+    </section>
+  </main>
+
+<script>
+const API_URL='https://script.google.com/macros/s/AKfycbxTZ0CxeU2C9VLBnJeBH-0E_5bQqSes4ffekvQGR5J55iTXbBiCXeDA787bFDmu6xtEow/exec';
+const chartInstances=[]; let allCalls=[]; let activePeriod='month'; const activeManagers=new Set();
+const els={managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid')};
+const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>new Date(year, monthIndex, day, hours, minutes, seconds, 0);
+const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+const endOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+const formatDateLocal=(d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parseLocalDate=(v)=>{if(!v)return null;const raw=String(v).trim();const isoAtStart=raw.slice(0,10);let m=isoAtStart.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);const parsed=createLocalDate(y,mo-1,d,0,0,0);if(/[tT].*[zZ]|[+-]\d{2}:?\d{2}/.test(raw)){parsed.setDate(parsed.getDate()+1);}return parsed;}m=raw.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);return createLocalDate(y,mo-1,d,0,0,0);}m=raw.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})/);if(m){const d=Number(m[1]),mo=Number(m[2]),yRaw=String(m[3]);const y=Number(yRaw.length===2?`20${yRaw}`:yRaw);return createLocalDate(y,mo-1,d,0,0,0);}return null;};
+const normalizeDate=(v)=>{const d=parseLocalDate(v);return d?formatDateLocal(d):null};
+const parseTimeParts=(t)=>{const raw=String(t??'').trim();if(!raw)return null;let m=raw.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);if(!m)m=raw.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?/);if(!m)return null;const hh=Math.min(23,Math.max(0,Number(m[1])));const mm=Math.min(59,Math.max(0,Number(m[2])));const ss=Math.min(59,Math.max(0,Number(m[3]||0)));return {hh,mm,ss};};
+const normalizeDateTime=(d,t)=>{const dateObj=parseLocalDate(d);if(!dateObj)return null;const parts=parseTimeParts(t);if(!parts)return null;return createLocalDate(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), parts.hh, parts.mm, parts.ss);};
+const getWeekStartISO=(x)=>{const d=createLocalDate(x.getFullYear(), x.getMonth(), x.getDate(),0,0,0);const day=d.getDay()||7;d.setDate(d.getDate()-day+1);return formatDateLocal(d)};
+const getQuarter=(d)=>Math.floor(d.getMonth()/3)+1;
+const inDateRange=(c,f,t)=>!!(c&&f&&t&&c>=f&&c<=t);
+const formatRangeLabel=(f,t)=>{const m=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];return `${f.getDate()} — ${t.getDate()} ${m[t.getMonth()]}`};
+function getPeriodRange(k){const n=new Date();const today=startOfDay(n);const todayEnd=endOfDay(n);if(k==='today')return{from:today,to:todayEnd};if(k==='yesterday'){const y=createLocalDate(today.getFullYear(),today.getMonth(),today.getDate()-1,0,0,0);return{from:y,to:endOfDay(y)}}if(k==='week'){const from=createLocalDate(today.getFullYear(),today.getMonth(),today.getDate()-6,0,0,0);return{from,to:todayEnd}}if(k==='month')return{from:createLocalDate(n.getFullYear(),n.getMonth(),1,0,0,0),to:todayEnd};if(k==='quarter'){const q=(getQuarter(n)-1)*3;return{from:createLocalDate(n.getFullYear(),q,1,0,0,0),to:todayEnd}}return null}
+function analyzeCalls(calls,g){const byPeriod={},byManager={},byPeriodType={},typeMap={'Входящий':0,'Исходящий':0,'Неотвеченный':0,'Сброшенный':0};let incoming=0,outgoing=0,missed=0,dropped=0;for(const call of calls){const type=(call?.type||'').trim(),manager=(call?.manager||'Не указан').trim()||'Не указан',d=normalizeDate(call?.date),dt=normalizeDateTime(call?.date,call?.time),baseDate=(g==='hour')?dt:(dt||(d?parseLocalDate(d):null));if(type==='Входящий')incoming++;if(type==='Исходящий')outgoing++;if(type==='Неотвеченный')missed++;if(type==='Сброшенный')dropped++;if(typeMap[type]!==undefined)typeMap[type]++;let key=d|| (baseDate?formatDateLocal(baseDate):'Без даты');if(g==='hour'){if(!baseDate) continue; const h=String(baseDate.getHours()).padStart(2,'0');key=`${d || formatDateLocal(baseDate)} ${h}:00`;}if(g==='week'&&baseDate)key=`Неделя с ${getWeekStartISO(baseDate)}`;if(g==='month'&&baseDate)key=`${baseDate.getFullYear()}-${String(baseDate.getMonth()+1).padStart(2,'0')}`;byPeriod[key]=(byPeriod[key]||0)+1;byManager[manager]=(byManager[manager]||0)+1; if(!byPeriodType[key]) byPeriodType[key]={incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0}; if(type==='Входящий') byPeriodType[key].incoming+=1; if(type==='Исходящий') byPeriodType[key].outgoing+=1; if(type==='Неотвеченный'){byPeriodType[key].missed+=1; byPeriodType[key].unanswered+=1;} if(type==='Сброшенный') byPeriodType[key].dropped+=1; }return{total:calls.length,incoming,outgoing,missed,unanswered:missed,dropped,byPeriod,byManager,byPeriodType,typeMap};}
+
+const totalsLabelPlugin={
+  id:'totalsLabelPlugin',
+  afterDatasetsDraw(chart){
+    if(chart.canvas.id!=='callsByDayChart') return;
+    const {ctx, scales:{y}}=chart;
+    const labelsCount=chart.data.labels.length;
+    ctx.save();
+    ctx.fillStyle='#111827';
+    ctx.font='12px Inter, sans-serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='bottom';
+    for(let i=0;i<labelsCount;i++){
+      let total=0; let x=null;
+      chart.data.datasets.forEach((ds, di)=>{
+        const v=Number(ds.data[i]||0); total+=v;
+        const meta=chart.getDatasetMeta(di);
+        const el=meta?.data?.[i];
+        if(el&&x===null) x=el.x;
+      });
+      if(x===null||total<=0) continue;
+      const yPos=y.getPixelForValue(total)-4;
+      ctx.fillText(String(total), x, yPos);
+    }
+    ctx.restore();
+  }
+};
+
+
+function buildHourlySeries(stats){
+  const labels=[];
+  const incoming=[];
+  const outgoing=[];
+  const missed=[];
+  const unanswered=[];
+  const dropped=[];
+  for(let h=0; h<24; h++){
+    const hh=String(h).padStart(2,'0');
+    labels.push(`${hh}:00`);
+    incoming.push(0); outgoing.push(0); missed.push(0); unanswered.push(0); dropped.push(0);
+  }
+  Object.entries(stats.byPeriodType||{}).forEach(([key,val])=>{
+    const m=String(key).match(/ (\d{2}):00$/);
+    if(!m) return;
+    const idx=Number(m[1]);
+    if(idx<0||idx>23) return;
+    incoming[idx]+=val?.incoming||0;
+    outgoing[idx]+=val?.outgoing||0;
+    missed[idx]+=val?.missed||0;
+    unanswered[idx]+=val?.unanswered||0;
+    dropped[idx]+=val?.dropped||0;
+  });
+  return {labels,incoming,outgoing,missed,unanswered,dropped};
+}
+
+const destroyCharts=()=>{while(chartInstances.length)chartInstances.pop().destroy()};
+function renderKpi(s){const totalCalculated=(s.incoming||0)+(s.outgoing||0)+(s.missed||0)+(s.unanswered||0)+(s.dropped||0);els.kpiTotal.textContent=totalCalculated;els.kpiIncoming.textContent=s.incoming;els.kpiOutgoing.textContent=s.outgoing;els.kpiMissed.textContent=s.missed;els.kpiUnanswered.textContent=s.unanswered;els.kpiDropped.textContent=s.dropped||0}
+function renderCharts(s,g){destroyCharts();let labels=Object.keys(s.byPeriod).sort(),values=labels.map((d)=>s.byPeriod[d]);
+      let incomingData=labels.map((k)=>s.byPeriodType?.[k]?.incoming||0); let outgoingData=labels.map((k)=>s.byPeriodType?.[k]?.outgoing||0); let missedData=labels.map((k)=>s.byPeriodType?.[k]?.missed||0); let unansweredData=labels.map((k)=>s.byPeriodType?.[k]?.unanswered||0); let droppedData=labels.map((k)=>s.byPeriodType?.[k]?.dropped||0); if(g==='hour'){ const hourly=buildHourlySeries(s); labels=hourly.labels; incomingData=hourly.incoming; outgoingData=hourly.outgoing; missedData=hourly.missed; unansweredData=hourly.unanswered; droppedData=hourly.dropped; values=hourly.incoming.map((_,i)=>hourly.incoming[i]+hourly.outgoing[i]+hourly.missed[i]+hourly.unanswered[i]+hourly.dropped[i]); }els.trendTitle.textContent={hour:'Звонки по часам',day:'Звонки',week:'Звонки по неделям',month:'Звонки по месяцам'}[g]||'Звонки'; chartInstances.push(new Chart(document.getElementById('callsByDayChart'),{type:'bar',data:{labels,datasets:[{label:'Входящие',data:incomingData,backgroundColor:'#10b981'},{label:'Исходящие',data:outgoingData,backgroundColor:'#3b82f6'},{label:'Пропущенные',data:missedData,backgroundColor:'#f59e0b'},{label:'Неотвеченные',data:unansweredData,backgroundColor:'#ef4444'},{label:'Сброшенные',data:droppedData,backgroundColor:'#8b5cf6'}]},options:{maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom'}},scales:{x:{stacked:true},y:{beginAtZero:true,stacked:true,ticks:{precision:0}}}},plugins:[totalsLabelPlugin]}));chartInstances.push(new Chart(document.getElementById('callTypesChart'),{type:'pie',data:{labels:['Входящий','Исходящий','Неотвеченный','Пропущенные'],datasets:[{data:[s.typeMap['Входящий']||0,s.typeMap['Исходящий']||0,s.typeMap['Неотвеченный']||0,s.missed||0],backgroundColor:['#10b981','#3b82f6','#ef4444','#f59e0b']}]},options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}}));const ml=Object.keys(s.byManager).sort((a,b)=>s.byManager[b]-s.byManager[a]),md=ml.map((n)=>s.byManager[n]);chartInstances.push(new Chart(document.getElementById('managerCallsChart'),{type:'bar',data:{labels:ml,datasets:[{label:'Звонки',data:md,backgroundColor:'#6366f1'}]},options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}}));}
+const showNoData=()=>{els.emptyState.style.display='block';els.chartsGrid.style.display='none'}; const hideNoData=()=>{els.emptyState.style.display='none';els.chartsGrid.style.display='grid'};
+function populateManagers(calls){const managers=[...new Set(calls.map((c)=>((c?.manager||'Не указан').trim()||'Не указан')))].sort();els.managerTags.innerHTML=managers.map((m)=>`<button class="manager-tag active" data-manager="${m}">${m}</button>`).join('');managers.forEach((m)=>activeManagers.add(m));}
+
+function setGroupByForPeriod(period){
+  const map={today:'hour',yesterday:'hour',week:'day',month:'day',quarter:'month',custom:'day'};
+  const val=map[period]||'day';
+  els.groupByFilter.value=val;
+}
+
+function setActivePeriodPill(p){activePeriod=p;document.querySelectorAll('.period-pill').forEach((b)=>b.classList.toggle('active',b.dataset.period===p));
+  setGroupByForPeriod(p);
+}
+function applyFilters(){const g=els.groupByFilter.value,p=activePeriod,range=getPeriodRange(p);let from=null,to=null;if(p==='custom'){from=els.dateFrom.value?startOfDay(parseLocalDate(els.dateFrom.value)):null;to=els.dateTo.value?endOfDay(parseLocalDate(els.dateTo.value)):null;if(!from||!to){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}}else if(range){from=range.from;to=range.to;}const filtered=allCalls.filter((c)=>{const m=(c?.manager||'Не указан').trim()||'Не указан';if(!activeManagers.has(m))return false;if(!from||!to)return true;const norm=normalizeDate(c?.date);const dt=normalizeDateTime(c?.date,c?.time)||(norm?parseLocalDate(norm):null);if(!dt&&norm){const dObj=parseLocalDate(norm);if(!dObj) return false;const dayPoint=createLocalDate(dObj.getFullYear(),dObj.getMonth(),dObj.getDate(),12,0,0);return inDateRange(dayPoint,from,to);}return inDateRange(dt,from,to)});if(!filtered.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}hideNoData();const gg=['hour','day','week','month'].includes(g)?g:'day';const s=analyzeCalls(filtered,gg);renderKpi(s);renderCharts(s,gg);}
+function bindFilters(){els.periodShell.addEventListener('click',(e)=>{const btn=e.target.closest('.period-pill');if(!btn||!btn.dataset.period)return;setActivePeriodPill(btn.dataset.period);applyFilters();});els.applyCustomRangeBtn.addEventListener('click',()=>{setActivePeriodPill('custom');applyFilters();});els.groupByFilter.addEventListener('change',applyFilters);els.managerTags.addEventListener('click',(e)=>{const tag=e.target.closest('.manager-tag');if(!tag)return;const m=tag.dataset.manager;if(activeManagers.has(m)){activeManagers.delete(m);tag.classList.remove('active');}else{activeManagers.add(m);tag.classList.add('active');}applyFilters();});}
+async function initDashboard(){try{const response=await fetch(API_URL);const raw=await response.json();allCalls=Array.isArray(raw)?raw:[];if(!allCalls.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}populateManagers(allCalls);bindFilters();setGroupByForPeriod(activePeriod);hideNoData();applyFilters();}catch(error){console.log('Ошибка загрузки/обработки данных:',error);}}
+initDashboard();
+</script>
+</body>
+</html>
