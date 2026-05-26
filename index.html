@@ -25,17 +25,10 @@
     .custom-date-pop{display:none;position:absolute;top:46px;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:var(--shadow);padding:10px;z-index:10;width:290px}
     .custom-date-pop.open{display:grid;gap:8px}.date-range{display:flex;align-items:end;gap:8px;margin-left:auto;flex-shrink:0}
     input[type="date"], select{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;background:#fff;color:#111827}
-    .detail-shell{display:flex;gap:6px;flex-wrap:wrap}
-    .detail-pill{border:0;border-radius:999px;background:#e3e7ee;color:#4b5563;padding:7px 14px;cursor:pointer;transition:.2s}
-    .detail-pill.active{background:#fff;color:#111827;font-weight:600;box-shadow:0 4px 14px rgba(15,23,42,.11)}
-    .detail-pill:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
 
     .manager-tags{display:flex;flex-wrap:wrap;gap:8px}
     .manager-tag{border:1px solid #d1d5db;background:#f3f4f6;color:#374151;border-radius:999px;padding:8px 12px;cursor:pointer;transition:.2s}
     .manager-tag.active{background:#111827;color:#fff;border-color:#111827}
-    .type-tags{display:flex;flex-wrap:wrap;gap:8px}
-    .type-tag{border:1px solid #d1d5db;background:#f3f4f6;color:#374151;border-radius:999px;padding:8px 12px;cursor:pointer;transition:.2s}
-    .type-tag.active{background:#1f2937;color:#fff;border-color:#1f2937}
 
     .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
     .kpi-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:16px;border:1px solid #e5e7eb}
@@ -52,7 +45,7 @@
 </head>
 <body>
   <main class="container">
-    <h1>Аналитика звонков</h1>
+    <h1>Общая аналитика активности ОП</h1>
 
     <section class="filter-card period-card">
       <div>
@@ -63,7 +56,6 @@
           <button class="period-pill" data-period="week">Неделя</button>
           <button class="period-pill active" data-period="month">Месяц</button>
           <button class="period-pill" data-period="quarter">Квартал</button>
-          <button class="period-pill" data-period="year">Год</button>
           <div class="date-range">
             <div>
               <div class="filter-title">Начало периода</div>
@@ -84,11 +76,6 @@
       <div class="manager-tags" id="managerTags"></div>
     </section>
 
-    <section class="filter-card">
-      <div class="filter-title">Типы звонков</div>
-      <div class="type-tags" id="callTypeTags"></div>
-    </section>
-
     <section class="kpi-grid" id="kpiGrid">
       <article class="kpi-card"><div class="kpi-title">Всего звонков</div><div class="kpi-value" id="kpiTotal">0</div></article>
       <article class="kpi-card"><div class="kpi-title">Входящие</div><div class="kpi-value" id="kpiIncoming">0</div></article>
@@ -104,12 +91,12 @@
       <article class="chart-card line-chart">
         <div class="chart-head">
           <h2 id="trendTitle">Звонки</h2>
-          <div class="detail-shell" id="groupByFilter">
-            <button class="detail-pill" data-group="hour">По часам</button>
-            <button class="detail-pill active" data-group="day">По дням</button>
-            <button class="detail-pill" data-group="week">По неделям</button>
-            <button class="detail-pill" data-group="month">По месяцам</button>
-          </div>
+          <select id="groupByFilter">
+            <option value="hour">По часам</option>
+            <option value="day" selected>По дням</option>
+            <option value="week">По неделям</option>
+            <option value="month">По месяцам</option>
+          </select>
         </div>
         <div class="chart-wrap"><canvas id="callsByDayChart"></canvas></div>
       </article>
@@ -119,24 +106,23 @@
   </main>
 
 <script>
-const CALLTRACK_CALLS_API_URL='https://docs.google.com/spreadsheets/d/1ZNvJK0s1KkoOY9M-iIvNBAX07YBBcSFTaht1smCQDLc/gviz/tq?sheet=Calls&tqx=out:json';
-const CALLTRACK_MOP_CONTACTS_API_URL='https://script.google.com/macros/s/AKfycbwk0DCMRYdHN0qyCILjm8Ftyt518jktwDJ1YfP1lwl7NRmIrygKMu_z_8ntcbIT0Pbv/exec';
-const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeGroupBy='day'; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']);
-const els={managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags')};
+const API_URL='https://script.google.com/macros/s/AKfycbxTZ0CxeU2C9VLBnJeBH-0E_5bQqSes4ffekvQGR5J55iTXbBiCXeDA787bFDmu6xtEow/exec';
+const chartInstances=[]; let allCalls=[]; let activePeriod='month'; const activeManagers=new Set();
+const els={managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid')};
 const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>new Date(year, monthIndex, day, hours, minutes, seconds, 0);
 const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
 const endOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
 const formatDateLocal=(d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-const parseLocalDate=(v)=>{if(!v)return null;const raw=String(v).trim();let gviz=raw.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})(?:,\d{1,2},\d{1,2},\d{1,2})?\)$/);if(gviz){const y=Number(gviz[1]),mo=Number(gviz[2]),d=Number(gviz[3]);return createLocalDate(y,mo,d,0,0,0);}const isoAtStart=raw.slice(0,10);let m=isoAtStart.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);const parsed=createLocalDate(y,mo-1,d,0,0,0);if(/[tT].*[zZ]|[+-]\d{2}:?\d{2}/.test(raw)){parsed.setDate(parsed.getDate()+1);}return parsed;}m=raw.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);return createLocalDate(y,mo-1,d,0,0,0);}m=raw.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})/);if(m){const d=Number(m[1]),mo=Number(m[2]),yRaw=String(m[3]);const y=Number(yRaw.length===2?`20${yRaw}`:yRaw);return createLocalDate(y,mo-1,d,0,0,0);}return null;};
+const parseLocalDate=(v)=>{if(!v)return null;const raw=String(v).trim();const isoAtStart=raw.slice(0,10);let m=isoAtStart.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);const parsed=createLocalDate(y,mo-1,d,0,0,0);if(/[tT].*[zZ]|[+-]\d{2}:?\d{2}/.test(raw)){parsed.setDate(parsed.getDate()+1);}return parsed;}m=raw.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);return createLocalDate(y,mo-1,d,0,0,0);}m=raw.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})/);if(m){const d=Number(m[1]),mo=Number(m[2]),yRaw=String(m[3]);const y=Number(yRaw.length===2?`20${yRaw}`:yRaw);return createLocalDate(y,mo-1,d,0,0,0);}return null;};
 const normalizeDate=(v)=>{const d=parseLocalDate(v);return d?formatDateLocal(d):null};
-const parseTimeParts=(t)=>{const raw=String(t??'').trim();if(!raw)return null;const gvizTime=raw.match(/^\[(\d{1,2}),(\d{1,2})(?:,(\d{1,2}))?\]$/);if(gvizTime){const hh=Math.min(23,Math.max(0,Number(gvizTime[1])));const mm=Math.min(59,Math.max(0,Number(gvizTime[2])));const ss=Math.min(59,Math.max(0,Number(gvizTime[3]||0)));return {hh,mm,ss};}const tzMatch=raw.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})/);if(tzMatch){const y=Number(tzMatch[1]);const mo=Number(tzMatch[2]);const d=Number(tzMatch[3]);const hh=Number(tzMatch[4]);const mm=Number(tzMatch[5]);const ss=Number(tzMatch[6]||0);const tz=tzMatch[7];let offsetMin=0;if(tz!=='Z'){const sign=tz[0]==='-'?-1:1;const tzh=Number(tz.slice(1,3));const tzm=Number(tz.replace(':','').slice(3,5));offsetMin=sign*(tzh*60+tzm);}const utcMs=Date.UTC(y,mo-1,d,hh,mm,ss)-offsetMin*60000;const local=new Date(utcMs);return {hh:local.getHours(),mm:local.getMinutes(),ss:local.getSeconds()};}let m=raw.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);if(!m)m=raw.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?/);if(!m)return null;const ph=Math.min(23,Math.max(0,Number(m[1])));const pm=Math.min(59,Math.max(0,Number(m[2])));const ps=Math.min(59,Math.max(0,Number(m[3]||0)));return {hh:ph,mm:pm,ss:ps};};
+const parseTimeParts=(t)=>{const raw=String(t??'').trim();if(!raw)return null;let m=raw.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);if(!m)m=raw.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?/);if(!m)return null;const hh=Math.min(23,Math.max(0,Number(m[1])));const mm=Math.min(59,Math.max(0,Number(m[2])));const ss=Math.min(59,Math.max(0,Number(m[3]||0)));return {hh,mm,ss};};
 const normalizeDateTime=(d,t)=>{const dateObj=parseLocalDate(d);if(!dateObj)return null;const parts=parseTimeParts(t);if(!parts)return null;return createLocalDate(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), parts.hh, parts.mm, parts.ss);};
 const getWeekStartISO=(x)=>{const d=createLocalDate(x.getFullYear(), x.getMonth(), x.getDate(),0,0,0);const day=d.getDay()||7;d.setDate(d.getDate()-day+1);return formatDateLocal(d)};
 const getQuarter=(d)=>Math.floor(d.getMonth()/3)+1;
 const inDateRange=(c,f,t)=>!!(c&&f&&t&&c>=f&&c<=t);
 const formatRangeLabel=(f,t)=>{const m=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];return `${f.getDate()} — ${t.getDate()} ${m[t.getMonth()]}`};
-function getPeriodRange(k){const n=new Date();const today=startOfDay(n);const todayEnd=endOfDay(n);if(k==='today')return{from:today,to:todayEnd};if(k==='yesterday'){const y=createLocalDate(today.getFullYear(),today.getMonth(),today.getDate()-1,0,0,0);return{from:y,to:endOfDay(y)}}if(k==='week'){const from=createLocalDate(today.getFullYear(),today.getMonth(),today.getDate()-6,0,0,0);return{from,to:todayEnd}}if(k==='month')return{from:createLocalDate(n.getFullYear(),n.getMonth(),1,0,0,0),to:todayEnd};if(k==='quarter'){const q=(getQuarter(n)-1)*3;return{from:createLocalDate(n.getFullYear(),q,1,0,0,0),to:todayEnd}}if(k==='year')return{from:createLocalDate(n.getFullYear(),0,1,0,0,0),to:todayEnd};return null}
-function analyzeCalls(calls,g){const byPeriod={},byManager={},byPeriodType={},byManagerType={},typeMap={'Входящий':0,'Исходящий':0,'Неотвеченный':0,'Сброшенный':0};let incoming=0,outgoing=0,missed=0,dropped=0;for(const call of calls){const type=(call?.type||'').trim(),manager=(call?.manager||'Не указан').trim()||'Не указан',d=normalizeDate(call?.date),dt=normalizeDateTime(call?.date,call?.time),baseDate=(g==='hour')?dt:(dt||(d?parseLocalDate(d):null));if(type==='Входящий')incoming++;if(type==='Исходящий')outgoing++;if(type==='Неотвеченный')missed++;if(type==='Сброшенный')dropped++;if(typeMap[type]!==undefined)typeMap[type]++;let key=d|| (baseDate?formatDateLocal(baseDate):'Без даты');if(g==='hour'){if(!baseDate) continue; const h=String(baseDate.getHours()).padStart(2,'0');key=`${d || formatDateLocal(baseDate)} ${h}:00`;}if(g==='week'&&baseDate)key=`Неделя с ${getWeekStartISO(baseDate)}`;if(g==='month'&&baseDate)key=`${baseDate.getFullYear()}-${String(baseDate.getMonth()+1).padStart(2,'0')}`;byPeriod[key]=(byPeriod[key]||0)+1;byManager[manager]=(byManager[manager]||0)+1; if(!byPeriodType[key]) byPeriodType[key]={incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0}; if(type==='Входящий') byPeriodType[key].incoming+=1; if(type==='Исходящий') byPeriodType[key].outgoing+=1; if(type==='Неотвеченный'){byPeriodType[key].missed+=1; byPeriodType[key].unanswered+=1;} if(type==='Сброшенный') byPeriodType[key].dropped+=1; if(!byManagerType[manager]) byManagerType[manager]={incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0}; if(type==='Входящий') byManagerType[manager].incoming+=1; if(type==='Исходящий') byManagerType[manager].outgoing+=1; if(type==='Неотвеченный'){byManagerType[manager].missed+=1; byManagerType[manager].unanswered+=1;} if(type==='Сброшенный') byManagerType[manager].dropped+=1; }return{total:calls.length,incoming,outgoing,missed,unanswered:missed,dropped,byPeriod,byManager,byPeriodType,byManagerType,typeMap};}
+function getPeriodRange(k){const n=new Date();const today=startOfDay(n);const todayEnd=endOfDay(n);if(k==='today')return{from:today,to:todayEnd};if(k==='yesterday'){const y=createLocalDate(today.getFullYear(),today.getMonth(),today.getDate()-1,0,0,0);return{from:y,to:endOfDay(y)}}if(k==='week'){const from=createLocalDate(today.getFullYear(),today.getMonth(),today.getDate()-6,0,0,0);return{from,to:todayEnd}}if(k==='month')return{from:createLocalDate(n.getFullYear(),n.getMonth(),1,0,0,0),to:todayEnd};if(k==='quarter'){const q=(getQuarter(n)-1)*3;return{from:createLocalDate(n.getFullYear(),q,1,0,0,0),to:todayEnd}}return null}
+function analyzeCalls(calls,g){const byPeriod={},byManager={},byPeriodType={},typeMap={'Входящий':0,'Исходящий':0,'Неотвеченный':0,'Сброшенный':0};let incoming=0,outgoing=0,missed=0,dropped=0;for(const call of calls){const type=(call?.type||'').trim(),manager=(call?.manager||'Не указан').trim()||'Не указан',d=normalizeDate(call?.date),dt=normalizeDateTime(call?.date,call?.time),baseDate=(g==='hour')?dt:(dt||(d?parseLocalDate(d):null));if(type==='Входящий')incoming++;if(type==='Исходящий')outgoing++;if(type==='Неотвеченный')missed++;if(type==='Сброшенный')dropped++;if(typeMap[type]!==undefined)typeMap[type]++;let key=d|| (baseDate?formatDateLocal(baseDate):'Без даты');if(g==='hour'){if(!baseDate) continue; const h=String(baseDate.getHours()).padStart(2,'0');key=`${d || formatDateLocal(baseDate)} ${h}:00`;}if(g==='week'&&baseDate)key=`Неделя с ${getWeekStartISO(baseDate)}`;if(g==='month'&&baseDate)key=`${baseDate.getFullYear()}-${String(baseDate.getMonth()+1).padStart(2,'0')}`;byPeriod[key]=(byPeriod[key]||0)+1;byManager[manager]=(byManager[manager]||0)+1; if(!byPeriodType[key]) byPeriodType[key]={incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0}; if(type==='Входящий') byPeriodType[key].incoming+=1; if(type==='Исходящий') byPeriodType[key].outgoing+=1; if(type==='Неотвеченный'){byPeriodType[key].missed+=1; byPeriodType[key].unanswered+=1;} if(type==='Сброшенный') byPeriodType[key].dropped+=1; }return{total:calls.length,incoming,outgoing,missed,unanswered:missed,dropped,byPeriod,byManager,byPeriodType,typeMap};}
 
 const totalsLabelPlugin={
   id:'totalsLabelPlugin',
@@ -193,71 +179,36 @@ function buildHourlySeries(stats){
 }
 
 const destroyCharts=()=>{while(chartInstances.length)chartInstances.pop().destroy()};
-
-function renderCallTypeTags(){
-  const items=['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные'];
-  els.callTypeTags.innerHTML=items.map((label)=>`<button class="type-tag ${activeCallTypes.has(label)?'active':''}" data-type="${label}">${label}</button>`).join('');
-}
-
 function renderKpi(s){const totalCalculated=(s.incoming||0)+(s.outgoing||0)+(s.missed||0)+(s.unanswered||0)+(s.dropped||0);els.kpiTotal.textContent=totalCalculated;els.kpiIncoming.textContent=s.incoming;els.kpiOutgoing.textContent=s.outgoing;els.kpiMissed.textContent=s.missed;els.kpiUnanswered.textContent=s.unanswered;els.kpiDropped.textContent=s.dropped||0}
 function renderCharts(s,g){destroyCharts();let labels=Object.keys(s.byPeriod).sort(),values=labels.map((d)=>s.byPeriod[d]);
-      let incomingData=labels.map((k)=>s.byPeriodType?.[k]?.incoming||0); let outgoingData=labels.map((k)=>s.byPeriodType?.[k]?.outgoing||0); let missedData=labels.map((k)=>s.byPeriodType?.[k]?.missed||0); let unansweredData=labels.map((k)=>s.byPeriodType?.[k]?.unanswered||0); let droppedData=labels.map((k)=>s.byPeriodType?.[k]?.dropped||0); if(g==='hour'){ const hourly=buildHourlySeries(s); labels=hourly.labels; incomingData=hourly.incoming; outgoingData=hourly.outgoing; missedData=hourly.missed; unansweredData=hourly.unanswered; droppedData=hourly.dropped; values=hourly.incoming.map((_,i)=>hourly.incoming[i]+hourly.outgoing[i]+hourly.missed[i]+hourly.unanswered[i]+hourly.dropped[i]); }els.trendTitle.textContent={hour:'Звонки по часам',day:'Звонки',week:'Звонки по неделям',month:'Звонки по месяцам'}[g]||'Звонки'; const callsDatasets=[{type:'Входящий',label:'Входящие',data:incomingData,backgroundColor:'#10b981'},{type:'Исходящий',label:'Исходящие',data:outgoingData,backgroundColor:'#3b82f6'},{type:'Пропущенные',label:'Пропущенные',data:missedData,backgroundColor:'#f59e0b'},{type:'Неотвеченные',label:'Неотвеченные',data:unansweredData,backgroundColor:'#ef4444'},{type:'Сброшенные',label:'Сброшенные',data:droppedData,backgroundColor:'#8b5cf6'}].map((d)=>({label:d.label,data:activeCallTypes.has(d.type)?d.data:d.data.map(()=>0),backgroundColor:d.backgroundColor})); chartInstances.push(new Chart(document.getElementById('callsByDayChart'),{type:'bar',data:{labels,datasets:callsDatasets},options:{maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom'}},scales:{x:{stacked:true},y:{beginAtZero:true,stacked:true,suggestedMax:Math.max(...values,0)+1,ticks:{precision:0,padding:6}}}},plugins:[totalsLabelPlugin]}));chartInstances.push(new Chart(document.getElementById('callTypesChart'),{type:'pie',data:{labels:['Входящий','Исходящий','Неотвеченный','Пропущенные'],datasets:[{data:[activeCallTypes.has('Входящий')?(s.typeMap['Входящий']||0):0,activeCallTypes.has('Исходящий')?(s.typeMap['Исходящий']||0):0,activeCallTypes.has('Неотвеченные')?(s.typeMap['Неотвеченный']||0):0,activeCallTypes.has('Пропущенные')?(s.missed||0):0],backgroundColor:['#10b981','#3b82f6','#ef4444','#f59e0b']}]},options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}}));const ml=Object.keys(s.byManager).sort((a,b)=>s.byManager[b]-s.byManager[a]); const managerIncoming=ml.map((n)=>s.byManagerType?.[n]?.incoming||0); const managerOutgoing=ml.map((n)=>s.byManagerType?.[n]?.outgoing||0); const managerMissed=ml.map((n)=>s.byManagerType?.[n]?.missed||0); const managerUnanswered=ml.map((n)=>s.byManagerType?.[n]?.unanswered||0); const managerDropped=ml.map((n)=>s.byManagerType?.[n]?.dropped||0); chartInstances.push(new Chart(document.getElementById('managerCallsChart'),{type:'bar',data:{labels:ml,datasets:[{label:'Входящие',data:activeCallTypes.has('Входящий')?managerIncoming:managerIncoming.map(()=>0),backgroundColor:'#10b981'},{label:'Исходящие',data:activeCallTypes.has('Исходящий')?managerOutgoing:managerOutgoing.map(()=>0),backgroundColor:'#3b82f6'},{label:'Пропущенные',data:activeCallTypes.has('Пропущенные')?managerMissed:managerMissed.map(()=>0),backgroundColor:'#f59e0b'},{label:'Неотвеченные',data:activeCallTypes.has('Неотвеченные')?managerUnanswered:managerUnanswered.map(()=>0),backgroundColor:'#ef4444'},{label:'Сброшенные',data:activeCallTypes.has('Сброшенные')?managerDropped:managerDropped.map(()=>0),backgroundColor:'#8b5cf6'}]},options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom'}},scales:{x:{beginAtZero:true,stacked:true,ticks:{precision:0}},y:{stacked:true}}}}));}
+      let incomingData=labels.map((k)=>s.byPeriodType?.[k]?.incoming||0); let outgoingData=labels.map((k)=>s.byPeriodType?.[k]?.outgoing||0); let missedData=labels.map((k)=>s.byPeriodType?.[k]?.missed||0); let unansweredData=labels.map((k)=>s.byPeriodType?.[k]?.unanswered||0); let droppedData=labels.map((k)=>s.byPeriodType?.[k]?.dropped||0); if(g==='hour'){ const hourly=buildHourlySeries(s); labels=hourly.labels; incomingData=hourly.incoming; outgoingData=hourly.outgoing; missedData=hourly.missed; unansweredData=hourly.unanswered; droppedData=hourly.dropped; values=hourly.incoming.map((_,i)=>hourly.incoming[i]+hourly.outgoing[i]+hourly.missed[i]+hourly.unanswered[i]+hourly.dropped[i]); }els.trendTitle.textContent={hour:'Звонки по часам',day:'Звонки',week:'Звонки по неделям',month:'Звонки по месяцам'}[g]||'Звонки'; chartInstances.push(new Chart(document.getElementById('callsByDayChart'),{type:'bar',data:{labels,datasets:[{label:'Входящие',data:incomingData,backgroundColor:'#10b981'},{label:'Исходящие',data:outgoingData,backgroundColor:'#3b82f6'},{label:'Пропущенные',data:missedData,backgroundColor:'#f59e0b'},{label:'Неотвеченные',data:unansweredData,backgroundColor:'#ef4444'},{label:'Сброшенные',data:droppedData,backgroundColor:'#8b5cf6'}]},options:{maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom'}},scales:{x:{stacked:true},y:{beginAtZero:true,stacked:true,suggestedMax:Math.max(...values,0)+1,ticks:{precision:0,padding:6}}}},plugins:[totalsLabelPlugin]}));chartInstances.push(new Chart(document.getElementById('callTypesChart'),{type:'pie',data:{labels:['Входящий','Исходящий','Неотвеченный','Пропущенные'],datasets:[{data:[s.typeMap['Входящий']||0,s.typeMap['Исходящий']||0,s.typeMap['Неотвеченный']||0,s.missed||0],backgroundColor:['#10b981','#3b82f6','#ef4444','#f59e0b']}]},options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}}));const ml=Object.keys(s.byManager).sort((a,b)=>s.byManager[b]-s.byManager[a]),md=ml.map((n)=>s.byManager[n]);chartInstances.push(new Chart(document.getElementById('managerCallsChart'),{type:'bar',data:{labels:ml,datasets:[{label:'Звонки',data:md,backgroundColor:'#6366f1'}]},options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}}));}
 const showNoData=()=>{els.emptyState.style.display='block';els.chartsGrid.style.display='none'}; const hideNoData=()=>{els.emptyState.style.display='none';els.chartsGrid.style.display='grid'};
 function populateManagers(calls){const managers=[...new Set(calls.map((c)=>((c?.manager||'Не указан').trim()||'Не указан')))].sort();els.managerTags.innerHTML=managers.map((m)=>`<button class="manager-tag active" data-manager="${m}">${m}</button>`).join('');managers.forEach((m)=>activeManagers.add(m));}
 
 
-
-function setActiveGroupBy(group){
-  activeGroupBy=group;
-  [...els.groupByFilter.querySelectorAll('.detail-pill')].forEach((btn)=>btn.classList.toggle('active', btn.dataset.group===group));
-}
-
 function updateGroupByAvailability(period){
-  const pills=[...els.groupByFilter.querySelectorAll('.detail-pill')];
-  const byKey=(k)=>pills.find((b)=>b.dataset.group===k);
-  const hourOption=byKey('hour');
-  const dayOption=byKey('day');
-  const monthOption=byKey('month');
-  if(hourOption){
-    const disableHour=['week','month','quarter','year'].includes(period);
-    hourOption.disabled=disableHour;
-    if(disableHour && activeGroupBy==='hour') setActiveGroupBy('day');
-  }
-  if(dayOption){
-    const disableDay=(period==='year');
-    dayOption.disabled=disableDay;
-    if(disableDay && activeGroupBy==='day') setActiveGroupBy('month');
-  }
-  if(monthOption){
-    const disableMonth=['week','month'].includes(period);
-    monthOption.disabled=disableMonth;
-    if(disableMonth && activeGroupBy==='month') setActiveGroupBy('day');
+  const hourOption=[...els.groupByFilter.options].find((o)=>o.value==='hour');
+  if(!hourOption) return;
+  const disableHour=['week','month','quarter'].includes(period);
+  hourOption.disabled=disableHour;
+  if(disableHour && els.groupByFilter.value==='hour'){
+    els.groupByFilter.value='day';
   }
 }
 
 function setGroupByForPeriod(period){
-  const map={today:'hour',yesterday:'hour',week:'day',month:'day',quarter:'month',year:'month',custom:'day'};
+  const map={today:'hour',yesterday:'hour',week:'day',month:'day',quarter:'month',custom:'day'};
   const val=map[period]||'day';
-  setActiveGroupBy(val);
+  els.groupByFilter.value=val;
 }
 
 function setActivePeriodPill(p){activePeriod=p;document.querySelectorAll('.period-pill').forEach((b)=>b.classList.toggle('active',b.dataset.period===p));
   updateGroupByAvailability(p);
   setGroupByForPeriod(p);
 }
-function applyFilters(){const g=activeGroupBy,p=activePeriod,range=getPeriodRange(p);let from=null,to=null;if(p==='custom'){from=els.dateFrom.value?startOfDay(parseLocalDate(els.dateFrom.value)):null;to=els.dateTo.value?endOfDay(parseLocalDate(els.dateTo.value)):null;if(!from||!to){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}}else if(range){from=range.from;to=range.to;}const filtered=allCalls.filter((c)=>{const client=String(c?.client||'').trim().toLowerCase();if(client==='личный звонок') return false; const type=(c?.type||'').trim(); const isMissed=type==='Неотвеченный'; const mappedType=isMissed?'Пропущенные':type; const mappedUnanswered=isMissed?'Неотвеченные':type; if(!(activeCallTypes.has(mappedType)||activeCallTypes.has(mappedUnanswered))) return false;const m=(c?.manager||'Не указан').trim()||'Не указан';if(!activeManagers.has(m))return false;if(!from||!to)return true;const norm=normalizeDate(c?.date);const dt=normalizeDateTime(c?.date,c?.time)||(norm?parseLocalDate(norm):null);if(!dt&&norm){const dObj=parseLocalDate(norm);if(!dObj) return false;const dayPoint=createLocalDate(dObj.getFullYear(),dObj.getMonth(),dObj.getDate(),12,0,0);return inDateRange(dayPoint,from,to);}return inDateRange(dt,from,to)});if(!filtered.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}hideNoData();const gg=['hour','day','week','month'].includes(g)?g:'day';const s=analyzeCalls(filtered,gg);renderKpi(s);renderCharts(s,gg);}
-function bindFilters(){renderCallTypeTags();els.callTypeTags.addEventListener('click',(e)=>{const tag=e.target.closest('.type-tag'); if(!tag) return; const t=tag.dataset.type; if(activeCallTypes.has(t)) activeCallTypes.delete(t); else activeCallTypes.add(t); renderCallTypeTags(); applyFilters();});els.periodShell.addEventListener('click',(e)=>{const btn=e.target.closest('.period-pill');if(!btn||!btn.dataset.period)return;setActivePeriodPill(btn.dataset.period);applyFilters();});els.applyCustomRangeBtn.addEventListener('click',()=>{setActivePeriodPill('custom');applyFilters();});els.groupByFilter.addEventListener('click',(e)=>{const btn=e.target.closest('.detail-pill'); if(!btn||btn.disabled) return; setActiveGroupBy(btn.dataset.group); applyFilters();});els.managerTags.addEventListener('click',(e)=>{const tag=e.target.closest('.manager-tag');if(!tag)return;const m=tag.dataset.manager;if(activeManagers.has(m)){activeManagers.delete(m);tag.classList.remove('active');}else{activeManagers.add(m);tag.classList.add('active');}applyFilters();});}
-async function initDashboard(){try{
-  // Важно: дашборд аналитики звонков должен читать только таблицу Calltrack (история звонков).
-  // URL Calltrack_mop оставлен отдельно, чтобы не смешивать источники данных.
-  const response=await fetch(CALLTRACK_CALLS_API_URL);const text=await response.text();const jsonText=text.substring(text.indexOf('{'), text.lastIndexOf('}')+1);const gviz=JSON.parse(jsonText);const cols=(gviz.table?.cols||[]).map((c)=>c.label||c.id||'');const rows=gviz.table?.rows||[];allCalls=rows.map((r)=>{const obj={};(r.c||[]).forEach((cell,i)=>{obj[cols[i]]=(cell&&cell.v!==null&&cell.v!==undefined)?String(cell.v):'';});return {date:obj.date||obj.Date||obj['Дата']||'',time:obj.time||obj.Time||obj['Время']||'',phone:obj.phone||obj.Phone||obj['Номер телефона']||obj['Телефон']||'',type:obj.type||obj.Type||obj['Тип звонка']||obj['Тип']||'',duration:obj.duration||obj.Duration||obj['Длительность']||'',manager:obj.manager||obj.Manager||obj['Менеджер']||'',note:obj.note||obj.Note||obj['Комментарий']||'',tag:obj.tag||obj.Tag||obj['Тег']||'',reminder:obj.reminder||obj.Reminder||obj['Напоминание']||'',reminderText:obj.reminderText||obj.ReminderText||obj['Текст напоминания']||'',client:obj.client||obj.Client||obj['Клиент']||'',id:obj.id||obj.ID||obj['ID']||''};});
-  console.log('Loaded calls:', allCalls.length);
-  console.log(allCalls.slice(0,5));
-  console.log('Field check:', {
-    nonEmptyType: allCalls.filter((c)=>String(c.type||'').trim()!=='').length,
-    nonEmptyDate: allCalls.filter((c)=>String(c.date||'').trim()!=='').length,
-    nonEmptyManager: allCalls.filter((c)=>String(c.manager||'').trim()!=='').length
-  });if(!allCalls.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}populateManagers(allCalls);bindFilters();updateGroupByAvailability(activePeriod);setGroupByForPeriod(activePeriod);hideNoData();applyFilters();}catch(error){console.log('Ошибка загрузки/обработки данных:',error);}}
+function applyFilters(){const g=els.groupByFilter.value,p=activePeriod,range=getPeriodRange(p);let from=null,to=null;if(p==='custom'){from=els.dateFrom.value?startOfDay(parseLocalDate(els.dateFrom.value)):null;to=els.dateTo.value?endOfDay(parseLocalDate(els.dateTo.value)):null;if(!from||!to){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}}else if(range){from=range.from;to=range.to;}const filtered=allCalls.filter((c)=>{const m=(c?.manager||'Не указан').trim()||'Не указан';if(!activeManagers.has(m))return false;if(!from||!to)return true;const norm=normalizeDate(c?.date);const dt=normalizeDateTime(c?.date,c?.time)||(norm?parseLocalDate(norm):null);if(!dt&&norm){const dObj=parseLocalDate(norm);if(!dObj) return false;const dayPoint=createLocalDate(dObj.getFullYear(),dObj.getMonth(),dObj.getDate(),12,0,0);return inDateRange(dayPoint,from,to);}return inDateRange(dt,from,to)});if(!filtered.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}hideNoData();const gg=['hour','day','week','month'].includes(g)?g:'day';const s=analyzeCalls(filtered,gg);renderKpi(s);renderCharts(s,gg);}
+function bindFilters(){els.periodShell.addEventListener('click',(e)=>{const btn=e.target.closest('.period-pill');if(!btn||!btn.dataset.period)return;setActivePeriodPill(btn.dataset.period);applyFilters();});els.applyCustomRangeBtn.addEventListener('click',()=>{setActivePeriodPill('custom');applyFilters();});els.groupByFilter.addEventListener('change',applyFilters);els.managerTags.addEventListener('click',(e)=>{const tag=e.target.closest('.manager-tag');if(!tag)return;const m=tag.dataset.manager;if(activeManagers.has(m)){activeManagers.delete(m);tag.classList.remove('active');}else{activeManagers.add(m);tag.classList.add('active');}applyFilters();});}
+async function initDashboard(){try{const response=await fetch(API_URL);const raw=await response.json();allCalls=Array.isArray(raw)?raw:[];if(!allCalls.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}populateManagers(allCalls);bindFilters();updateGroupByAvailability(activePeriod);setGroupByForPeriod(activePeriod);hideNoData();applyFilters();}catch(error){console.log('Ошибка загрузки/обработки данных:',error);}}
 initDashboard();
 </script>
 </body>
