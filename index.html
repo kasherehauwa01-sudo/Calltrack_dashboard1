@@ -119,7 +119,7 @@
   </main>
 
 <script>
-const CALLTRACK_CALLS_API_URL='https://docs.google.com/spreadsheets/d/1ZNvJK0s1KkoOY9M-iIvNBAX07YBBcSFTaht1smCQDLc/gviz/tq?sheet=Calls&tqx=out:json';
+const CALLTRACK_CALLS_API_URL='https://script.google.com/macros/s/AKfycbxTZ0CxeU2C9VLBnJeBH-0E_5bQqSes4ffekvQGR5J55iTXbBiCXeDA787bFDmu6xtEow/exec';
 const CALLTRACK_MOP_CONTACTS_API_URL='https://script.google.com/macros/s/AKfycbwk0DCMRYdHN0qyCILjm8Ftyt518jktwDJ1YfP1lwl7NRmIrygKMu_z_8ntcbIT0Pbv/exec';
 const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeGroupBy='day'; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']);
 const els={managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags')};
@@ -140,6 +140,44 @@ function getCellValue(cell){
   if(cell.f!==null && cell.f!==undefined && cell.f!=='') return cell.f;
   if(cell.v!==null && cell.v!==undefined) return cell.v;
   return '';
+}
+
+
+function mapCallRecord(obj){
+  return {
+    date: obj.date || obj.Date || obj['Дата'] || '',
+    time: obj.time || obj.Time || obj['Время'] || '',
+    phone: obj.phone || obj.Phone || obj['Номер телефона'] || obj['Телефон'] || '',
+    type: obj.type || obj.Type || obj['Тип звонка'] || obj['Тип'] || '',
+    duration: obj.duration || obj.Duration || obj['Длительность'] || '',
+    manager: obj.manager || obj.Manager || obj['Менеджер'] || '',
+    note: obj.note || obj.comment || obj.Note || obj.Comment || obj['Комментарий'] || '',
+    tag: obj.tag || obj.Tag || obj['Тег'] || '',
+    reminder: obj.reminder || obj.Reminder || obj['Напоминание'] || '',
+    reminderText: obj.reminderText || obj.reminder_text || obj.ReminderText || obj['Текст напоминания'] || '',
+    client: obj.client || obj.Client || obj['Клиент'] || '',
+    id: obj.id || obj.ID || obj.call_id || obj['ID'] || '',
+    userPhone: obj.user_phone || obj.userPhone || obj['Номер телефона пользователя'] || ''
+  };
+}
+function parseCallsPayload(text){
+  try {
+    const raw=JSON.parse(text);
+    if(Array.isArray(raw)) return raw.map(mapCallRecord);
+    if(raw&&raw.status==='error') { console.log('Calltrack API error:', raw); return []; }
+  } catch (_) {}
+  const start=text.indexOf('{');
+  const end=text.lastIndexOf('}');
+  if(start<0||end<0||end<=start) return [];
+  const gviz=JSON.parse(text.substring(start,end+1));
+  const cols=(gviz.table?.cols||[]).map((c)=>c.label||c.id||'');
+  const rows=gviz.table?.rows||[];
+  console.log(rows[0]);
+  return rows.map((r)=>{
+    const obj={};
+    (r.c||[]).forEach((cell,i)=>{obj[cols[i]]=getCellValue(cell);});
+    return mapCallRecord(obj);
+  });
 }
 
 function normalizeCallTypeLabel(rawType){
@@ -266,9 +304,8 @@ function bindFilters(){renderCallTypeTags();els.callTypeTags.addEventListener('c
 async function initDashboard(){try{
   // Важно: дашборд аналитики звонков должен читать только таблицу Calltrack (история звонков).
   // URL Calltrack_mop оставлен отдельно, чтобы не смешивать источники данных.
-  const response=await fetch(CALLTRACK_CALLS_API_URL);const text=await response.text();const jsonText=text.substring(text.indexOf('{'), text.lastIndexOf('}')+1);const gviz=JSON.parse(jsonText);const cols=(gviz.table?.cols||[]).map((c)=>c.label||c.id||'');const rows=gviz.table?.rows||[];
-  console.log(rows[0]);
-  allCalls=rows.map((r)=>{const obj={};(r.c||[]).forEach((cell,i)=>{obj[cols[i]]=getCellValue(cell);});return {date:obj.date||obj.Date||obj['Дата']||'',time:obj.time||obj.Time||obj['Время']||'',phone:obj.phone||obj.Phone||obj['Номер телефона']||obj['Телефон']||'',type:obj.type||obj.Type||obj['Тип звонка']||obj['Тип']||'',duration:obj.duration||obj.Duration||obj['Длительность']||'',manager:obj.manager||obj.Manager||obj['Менеджер']||'',note:obj.note||obj.Note||obj['Комментарий']||'',tag:obj.tag||obj.Tag||obj['Тег']||'',reminder:obj.reminder||obj.Reminder||obj['Напоминание']||'',reminderText:obj.reminderText||obj.ReminderText||obj['Текст напоминания']||'',client:obj.client||obj.Client||obj['Клиент']||'',id:obj.id||obj.ID||obj['ID']||''};});
+  const response=await fetch(CALLTRACK_CALLS_API_URL);const text=await response.text();
+  allCalls=parseCallsPayload(text);
   console.log('Loaded calls:', allCalls.length);
   console.log(allCalls.slice(0,3));
   console.log('Field check:', {
