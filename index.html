@@ -4,21 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Дашборд отдела продаж</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%23f8fafc%22/%3E%3Cg%20fill%3D%22%2316a34a%22%3E%3Cellipse%20cx%3D%2224%22%20cy%3D%2222%22%20rx%3D%2212%22%20ry%3D%2214%22%20transform%3D%22rotate%28-45%2024%2022%29%22/%3E%3Cellipse%20cx%3D%2240%22%20cy%3D%2222%22%20rx%3D%2212%22%20ry%3D%2214%22%20transform%3D%22rotate%2845%2040%2022%29%22/%3E%3Cellipse%20cx%3D%2224%22%20cy%3D%2238%22%20rx%3D%2212%22%20ry%3D%2214%22%20transform%3D%22rotate%2845%2024%2038%29%22/%3E%3Cellipse%20cx%3D%2240%22%20cy%3D%2238%22%20rx%3D%2212%22%20ry%3D%2214%22%20transform%3D%22rotate%28-45%2040%2038%29%22/%3E%3C/g%3E%3Cpath%20d%3D%22M32%2032%20C38%2040%2043%2049%2048%2058%22%20fill%3D%22none%22%20stroke%3D%22%2315803d%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root { --bg:#f4f6fb; --card:#fff; --text:#1f2a37; --muted:#6b7280; --shadow:0 10px 30px rgba(15,23,42,.08); --radius:14px; }
     *{box-sizing:border-box;margin:0;padding:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
     body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px}
-    .container{max-width:1280px;margin:0 auto;display:grid;gap:20px}
-    h1{font-size:clamp(1.4rem,2.5vw,2rem);font-weight:700}
+    .container{max-width:1440px;margin:0 auto;display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px;align-items:start}
+    h1{font-size:clamp(1.4rem,2.5vw,2rem);font-weight:700;grid-column:2}
 
-    .dashboard-tabs{display:flex;gap:8px;background:#e9edf4;border-radius:999px;padding:6px;width:max-content;max-width:100%;overflow-x:auto}
-    .tab-btn{border:0;border-radius:999px;background:transparent;color:#4b5563;padding:10px 18px;cursor:pointer;transition:.2s ease;font-size:.95rem;white-space:nowrap}
+    .dashboard-tabs{grid-column:1;grid-row:1 / span 3;display:flex;flex-direction:column;gap:8px;background:#e9edf4;border-radius:22px;padding:8px;width:100%;position:sticky;top:24px;box-shadow:var(--shadow);border:1px solid #e5e7eb}
+    .tab-btn{border:0;border-radius:16px;background:transparent;color:#4b5563;padding:12px 14px;cursor:pointer;transition:.2s ease;font-size:.95rem;white-space:normal;text-align:left;width:100%}
     .tab-btn:hover{background:#dfe4ec;color:#111827}
     .tab-btn.active{background:#fff;color:#111827;font-weight:600;box-shadow:0 4px 14px rgba(15,23,42,.11)}
-    .view{display:none}.view.active{display:grid;gap:20px}
-    .admin-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:24px;border:1px solid #e5e7eb;display:grid;gap:16px;max-width:720px}
-    .admin-card h2{font-size:1.25rem;color:#111827}.admin-card p{color:var(--muted);line-height:1.5}
+    .view{display:none;grid-column:2}.view.active{display:grid;gap:20px}
+    .admin-card,.placeholder-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:24px;border:1px solid #e5e7eb;display:grid;gap:16px;max-width:720px}
+    .admin-card h2,.placeholder-card h2{font-size:1.25rem;color:#111827}.admin-card p,.placeholder-card p{color:var(--muted);line-height:1.5}
     .admin-login-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .admin-password{width:min(260px,100%);border:1px solid #d1d5db;border-radius:12px;padding:10px 12px;background:#fff;color:#111827}
     .admin-login-btn{border:0;border-radius:999px;background:#111827;color:#fff;padding:10px 18px;cursor:pointer;transition:.2s ease}
@@ -60,7 +61,7 @@
     .chart-card h2{font-size:1rem;font-weight:600;color:#111827}.chart-wrap{position:relative;flex:1;min-height:240px}
     .line-chart{grid-column:span 12}.pie-chart{grid-column:span 5}.bar-chart{grid-column:span 7}
     .empty-state{display:none;background:var(--card);border-radius:var(--radius);border:1px dashed #cbd5e1;padding:24px;text-align:center;color:var(--muted);font-size:1.1rem}
-    @media (max-width:900px){.pie-chart,.bar-chart,.line-chart{grid-column:span 12}.period-shell{flex-wrap:wrap;white-space:normal}.date-range{width:100%;margin-left:0;flex-wrap:wrap}}
+    @media (max-width:900px){.container{grid-template-columns:1fr}.dashboard-tabs{grid-column:1;grid-row:auto;position:static;flex-direction:row;overflow-x:auto;border-radius:18px}.tab-btn{width:auto;white-space:nowrap;text-align:center}.view,.view.active,h1{grid-column:1}.pie-chart,.bar-chart,.line-chart{grid-column:span 12}.period-shell{flex-wrap:wrap;white-space:normal}.date-range{width:100%;margin-left:0;flex-wrap:wrap}}
   </style>
 </head>
 <body>
@@ -69,6 +70,7 @@
 
     <nav class="dashboard-tabs" aria-label="Разделы дашборда">
       <button class="tab-btn active" data-tab="dashboard" type="button">Дашборд</button>
+      <button class="tab-btn" data-tab="clientCalls" type="button">Звонки клиентам</button>
       <button class="tab-btn" data-tab="admin" type="button">Админ панель</button>
     </nav>
 
@@ -137,6 +139,13 @@
     </section>
     </div>
 
+    <section class="view" id="clientCallsView">
+      <article class="placeholder-card">
+        <h2>Звонки клиентам</h2>
+        <p>Раздел подготовлен для отдельной работы со звонками клиентам. Данные основного дашборда и графики остаются на вкладке «Дашборд».</p>
+      </article>
+    </section>
+
     <section class="view" id="adminView">
       <article class="admin-card">
         <div class="admin-lock" id="adminLock">
@@ -161,7 +170,7 @@ const ADMIN_PASSWORD='8852285';
 const CALLTRACK_CALLS_API_URL='https://script.google.com/macros/s/AKfycbxrpLKT3jE-AwhgItoH3z7hM486RIxq3wL2gOUqAzqz4cBtjuC9VkMCeHblLe-_OIccRA/exec';
 const CALLTRACK_MOP_CONTACTS_API_URL='https://script.google.com/macros/s/AKfycbwk0DCMRYdHN0qyCILjm8Ftyt518jktwDJ1YfP1lwl7NRmIrygKMu_z_8ntcbIT0Pbv/exec';
 const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let isAdminUnlocked=false; let activeGroupBy='day'; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']);
-const els={dashboardView:document.getElementById('dashboardView'),adminView:document.getElementById('adminView'),managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags')};
+const els={dashboardView:document.getElementById('dashboardView'),clientCallsView:document.getElementById('clientCallsView'),adminView:document.getElementById('adminView'),managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags')};
 const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError')};
 const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>new Date(year, monthIndex, day, hours, minutes, seconds, 0);
 const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
@@ -223,8 +232,10 @@ function parseCallsPayload(text){
 
 function setActiveTab(tab){
   const isAdmin=tab==='admin';
+  const isClientCalls=tab==='clientCalls';
   adminEls.tabs.forEach((btn)=>btn.classList.toggle('active',btn.dataset.tab===tab));
-  els.dashboardView.classList.toggle('active',!isAdmin);
+  els.dashboardView.classList.toggle('active',tab==='dashboard');
+  els.clientCallsView.classList.toggle('active',isClientCalls);
   els.adminView.classList.toggle('active',isAdmin);
   if(isAdmin&&!isAdminUnlocked) setTimeout(()=>adminEls.password.focus(),0);
 }
