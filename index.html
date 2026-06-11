@@ -372,6 +372,7 @@ function toDatetimeLocalValue(value){
   return `${formatDateLocal(dt)}T${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
 }
 const getReminderText=(call)=>String(call?.reminderText||'').trim()||(!String(call?.reminder||'').match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/)?String(call?.reminder||'').trim():'');
+const callHasHistoryDetails=(call)=>Boolean(String(call?.note||'').trim()||String(call?.tag||'').trim()||String(call?.reminderAt||call?.reminder||'').trim()||getReminderText(call));
 function formatPhoneForDisplay(value){
   let digits=String(value||'').replace(/\D+/g,'');
   if(!digits) return '';
@@ -419,7 +420,7 @@ function renderClientRow(group){
   const segments=group.calls.map((call)=>{
     const date=formatDateLocal(call.__dt);
     const time=`${String(call.__dt.getHours()).padStart(2,'0')}:${String(call.__dt.getMinutes()).padStart(2,'0')}`;
-    const hasNote=String(call.note||'').trim()||String(call.tag||'').trim()||String(call.reminderAt||call.reminder||'').trim()||getReminderText(call);
+    const hasNote=callHasHistoryDetails(call);
     const cls=call.__type==='Входящий'?'incoming':'outgoing';
     const tooltip=`Дата: ${date}\nВремя: ${time}\nТип звонка: ${call.__type}\nДлительность: ${formatCallDuration(call.duration)}\nМенеджер: ${call.manager||'Не указан'}`;
     return `<button class="call-segment ${cls} ${hasNote?'has-note':''}" title="${escapeHtml(tooltip)}" data-index="${call.__index}" type="button" aria-label="Открыть комментарии"><div class="call-segment-top"><span class="call-type">${escapeHtml(call.__type)} · ${escapeHtml(formatCallDurationDot(call.duration))}</span></div><div class="call-datetime">${escapeHtml(date)} · ${escapeHtml(time)}</div></button>`;
@@ -434,7 +435,7 @@ function renderClientCalls(){
 
 function openClientHistoryModal(clientKey){
   const calls=allCalls.map((call,index)=>({...call,__index:index,__dt:getCallDateTime(call),__type:normalizeCallTypeLabel(call?.type)}))
-    .filter((call)=>getClientKey(call)===clientKey)
+    .filter((call)=>getClientKey(call)===clientKey&&callHasHistoryDetails(call))
     .sort((a,b)=>(b.__dt?b.__dt.getTime():0)-(a.__dt?a.__dt.getTime():0));
   const totalDuration=calls.reduce((sum,call)=>sum+parseDurationSeconds(call.duration),0);
   els.clientHistoryInfo.innerHTML=`<div><span>Клиент</span>${escapeHtml(clientKey)}</div><div><span>Всего звонков</span>${calls.length}</div><div><span>Общая длительность</span>${escapeHtml(formatCallDurationDot(totalDuration))}</div>`;
