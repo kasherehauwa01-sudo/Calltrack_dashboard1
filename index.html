@@ -38,7 +38,7 @@
     .custom-range-wrap.active{background:#fff;box-shadow:0 4px 14px rgba(15,23,42,.11);font-weight:600;color:#111827}
     .custom-date-pop{display:none;position:absolute;top:46px;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:var(--shadow);padding:10px;z-index:10;width:290px}
     .custom-date-pop.open{display:grid;gap:8px}.date-range{display:flex;align-items:end;gap:8px;margin-left:auto;flex-shrink:0}
-    input[type="date"], select{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;background:#fff;color:#111827}
+    input[type="date"], input[type="datetime-local"], select{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;background:#fff;color:#111827}
     .detail-shell{display:flex;gap:6px;flex-wrap:wrap}
     .detail-pill{border:0;border-radius:999px;background:#e3e7ee;color:#4b5563;padding:7px 14px;cursor:pointer;transition:.2s}
     .detail-pill.active{background:#fff;color:#111827;font-weight:600;box-shadow:0 4px 14px rgba(15,23,42,.11)}
@@ -68,7 +68,7 @@
     .comment-modal.open{display:flex}.comment-dialog{width:min(560px,100%);background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(15,23,42,.25);padding:22px;display:grid;gap:16px}
     .comment-dialog h2{font-size:1.25rem}.comment-info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;color:#374151;font-size:.9rem}.comment-info span{display:block;color:var(--muted);font-size:.78rem;margin-bottom:2px}
     .comment-field{display:grid;gap:6px}.comment-field label{font-size:.9rem;color:#374151}.comment-field textarea{min-height:94px;border:1px solid #d1d5db;border-radius:12px;padding:10px;resize:vertical;color:#111827}
-    .modal-actions{display:flex;justify-content:flex-end;gap:10px}.modal-btn{border:0;border-radius:999px;padding:10px 18px;cursor:pointer;transition:.2s}.modal-btn.cancel{background:#e5e7eb;color:#374151}.modal-btn.ok{background:#111827;color:#fff}.modal-btn:hover{filter:brightness(.96)}
+    .comment-status{min-height:20px;color:#dc2626;font-size:.9rem}.modal-actions{display:flex;justify-content:flex-end;gap:10px}.modal-btn{border:0;border-radius:999px;padding:10px 18px;cursor:pointer;transition:.2s}.modal-btn.cancel{background:#e5e7eb;color:#374151}.modal-btn.ok{background:#111827;color:#fff}.modal-btn:hover{filter:brightness(.96)}
 
     .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
     .kpi-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:16px;border:1px solid #e5e7eb}
@@ -217,9 +217,14 @@
           <textarea id="commentText" placeholder="Введите комментарий"></textarea>
         </div>
         <div class="comment-field">
+          <label for="reminderAt">Дата и время напоминания</label>
+          <input id="reminderAt" type="datetime-local" />
+        </div>
+        <div class="comment-field">
           <label for="reminderText">Напоминание</label>
           <textarea id="reminderText" placeholder="Введите напоминание"></textarea>
         </div>
+        <div class="comment-status" id="commentSaveStatus" aria-live="polite"></div>
         <div class="modal-actions">
           <button class="modal-btn cancel" id="commentCancelBtn" type="button">Отмена</button>
           <button class="modal-btn ok" id="commentSaveBtn" type="button">ОК</button>
@@ -233,7 +238,7 @@ const ADMIN_PASSWORD='8852285';
 const CALLTRACK_CALLS_API_URL='https://script.google.com/macros/s/AKfycbxrpLKT3jE-AwhgItoH3z7hM486RIxq3wL2gOUqAzqz4cBtjuC9VkMCeHblLe-_OIccRA/exec';
 const CALLTRACK_MOP_CONTACTS_API_URL='https://script.google.com/macros/s/AKfycbwk0DCMRYdHN0qyCILjm8Ftyt518jktwDJ1YfP1lwl7NRmIrygKMu_z_8ntcbIT0Pbv/exec';
 const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeClientPeriod='month'; let activeClientManager=''; let editingCallIndex=null; let isAdminUnlocked=false; let activeGroupBy='day'; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']);
-const els={dashboardView:document.getElementById('dashboardView'),clientCallsView:document.getElementById('clientCallsView'),adminView:document.getElementById('adminView'),managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags'),clientManagerTags:document.getElementById('clientManagerTags'),clientPeriodShell:document.getElementById('clientPeriodShell'),clientDateFrom:document.getElementById('clientDateFrom'),clientDateTo:document.getElementById('clientDateTo'),clientApplyRangeBtn:document.getElementById('clientApplyRangeBtn'),clientCallsList:document.getElementById('clientCallsList'),commentModal:document.getElementById('commentModal'),commentInfo:document.getElementById('commentInfo'),commentText:document.getElementById('commentText'),reminderText:document.getElementById('reminderText'),commentCancelBtn:document.getElementById('commentCancelBtn'),commentSaveBtn:document.getElementById('commentSaveBtn')};
+const els={dashboardView:document.getElementById('dashboardView'),clientCallsView:document.getElementById('clientCallsView'),adminView:document.getElementById('adminView'),managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags'),clientManagerTags:document.getElementById('clientManagerTags'),clientPeriodShell:document.getElementById('clientPeriodShell'),clientDateFrom:document.getElementById('clientDateFrom'),clientDateTo:document.getElementById('clientDateTo'),clientApplyRangeBtn:document.getElementById('clientApplyRangeBtn'),clientCallsList:document.getElementById('clientCallsList'),commentModal:document.getElementById('commentModal'),commentInfo:document.getElementById('commentInfo'),commentText:document.getElementById('commentText'),reminderText:document.getElementById('reminderText'),reminderAt:document.getElementById('reminderAt'),commentSaveStatus:document.getElementById('commentSaveStatus'),commentCancelBtn:document.getElementById('commentCancelBtn'),commentSaveBtn:document.getElementById('commentSaveBtn')};
 const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError')};
 const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>new Date(year, monthIndex, day, hours, minutes, seconds, 0);
 const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
@@ -267,6 +272,7 @@ function mapCallRecord(obj){
     tag: obj.tag || obj.Tag || obj['Тег'] || '',
     reminder: obj.reminder || obj.Reminder || obj['Напоминание'] || '',
     reminderText: obj.reminderText || obj.reminder_text || obj.ReminderText || obj['Текст напоминания'] || '',
+    reminderAt: obj.reminderAt || obj.reminder_at || obj['Дата напоминания'] || '',
     client: obj.client || obj.Client || obj['Клиент'] || '',
     id: obj.id || obj.ID || obj.call_id || obj['ID'] || '',
     userPhone: obj.user_phone || obj.userPhone || obj['Номер телефона пользователя'] || ''
@@ -341,10 +347,21 @@ function formatCallDuration(value){
   const rest=String(seconds%60).padStart(2,'0');
   return `${minutes}:${rest}`;
 }
+const formatCallDurationDot=(value)=>formatCallDuration(value).replace(':','.');
 function getCallDateTime(call){
   const norm=normalizeDate(call?.date);
   return normalizeDateTime(call?.date,call?.time)||(norm?parseLocalDate(norm):null);
 }
+function toDatetimeLocalValue(value){
+  if(!value) return '';
+  const raw=String(value).trim();
+  const m=raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
+  if(m) return `${m[1]}T${m[2]}`;
+  const dt=normalizeDateTime(raw,'00:00')||parseLocalDate(raw);
+  if(!dt) return '';
+  return `${formatDateLocal(dt)}T${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+}
+const getReminderText=(call)=>String(call?.reminderText||'').trim()||(!String(call?.reminder||'').match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/)?String(call?.reminder||'').trim():'');
 function getClientPeriodRange(){
   if(activeClientPeriod==='custom'){
     const from=els.clientDateFrom.value?startOfDay(parseLocalDate(els.clientDateFrom.value)):null;
@@ -365,6 +382,7 @@ function groupCallsByClient(calls){
   calls.forEach((call,index)=>{
     const manager=(call?.manager||'Не указан').trim()||'Не указан';
     if(manager!==activeClientManager) return;
+    if(String(call?.client||'').trim().toLowerCase()==='личный звонок') return;
     const type=normalizeCallTypeLabel(call?.type);
     if(!['Входящий','Исходящий'].includes(type)) return;
     if(parseDurationSeconds(call?.duration)<10) return;
@@ -382,13 +400,13 @@ function renderClientRow(group){
   const segments=group.calls.map((call)=>{
     const date=formatDateLocal(call.__dt);
     const time=`${String(call.__dt.getHours()).padStart(2,'0')}:${String(call.__dt.getMinutes()).padStart(2,'0')}`;
-    const hasNote=String(call.note||'').trim()||String(call.reminder||call.reminderText||'').trim();
+    const hasNote=String(call.note||'').trim()||String(call.reminderAt||call.reminder||'').trim()||getReminderText(call);
     const cls=call.__type==='Входящий'?'incoming':'outgoing';
     const tooltip=`Дата: ${date}\nВремя: ${time}\nТип звонка: ${call.__type}\nДлительность: ${formatCallDuration(call.duration)}\nМенеджер: ${call.manager||'Не указан'}`;
-    return `<article class="call-segment ${cls}" title="${escapeHtml(tooltip)}"><div class="call-segment-top"><span class="call-type">${escapeHtml(call.__type)}</span><button class="note-btn ${hasNote?'has-note':''}" data-index="${call.__index}" type="button" aria-label="Комментарии">🗒️</button></div><div class="call-datetime">${escapeHtml(date)} · ${escapeHtml(time)}</div></article>`;
+    return `<article class="call-segment ${cls}" title="${escapeHtml(tooltip)}"><div class="call-segment-top"><span class="call-type">${escapeHtml(call.__type)} · ${escapeHtml(formatCallDurationDot(call.duration))}</span><button class="note-btn ${hasNote?'has-note':''}" data-index="${call.__index}" type="button" aria-label="Комментарии">🗒️</button></div><div class="call-datetime">${escapeHtml(date)} · ${escapeHtml(time)}</div></article>`;
   }).join('');
-  const latest=formatDateLocal(group.lastDate);
-  return `<article class="client-row"><div><div class="client-name">${escapeHtml(group.client)}</div><div class="client-meta">Последний вызов: ${escapeHtml(latest)} · ${group.calls.length}</div></div><div class="call-timeline">${segments}</div></article>`;
+  const totalDuration=group.calls.reduce((sum,call)=>sum+parseDurationSeconds(call.duration),0);
+  return `<article class="client-row"><div><div class="client-name">${escapeHtml(group.client)}</div><div class="client-meta">Количество звонков: ${group.calls.length} · Общая продолжительность: ${escapeHtml(formatCallDurationDot(totalDuration))}</div></div><div class="call-timeline">${segments}</div></article>`;
 }
 function renderClientCalls(){
   const groups=groupCallsByClient(allCalls);
@@ -404,7 +422,9 @@ function openCommentModal(index){
   const type=normalizeCallTypeLabel(call.type)||'—';
   els.commentInfo.innerHTML=`<div><span>Дата звонка</span>${escapeHtml(date)}</div><div><span>Время звонка</span>${escapeHtml(time)}</div><div><span>Тип звонка</span>${escapeHtml(type)}</div><div><span>Клиент</span>${escapeHtml(call.client||'—')}</div><div><span>Телефон</span>${escapeHtml(call.phone||'—')}</div>`;
   els.commentText.value=call.note||'';
-  els.reminderText.value=call.reminder||call.reminderText||'';
+  els.reminderAt.value=toDatetimeLocalValue(call.reminderAt||call.reminder);
+  els.reminderText.value=getReminderText(call);
+  els.commentSaveStatus.textContent='';
   els.commentModal.classList.add('open');
   els.commentModal.setAttribute('aria-hidden','false');
   setTimeout(()=>els.commentText.focus(),0);
@@ -414,15 +434,57 @@ function closeCommentModal(){
   els.commentModal.classList.remove('open');
   els.commentModal.setAttribute('aria-hidden','true');
 }
-function saveComment(){
+async function saveComment(){
   if(editingCallIndex===null) return;
   const call=allCalls[editingCallIndex];
   if(!call) return;
-  call.note=els.commentText.value.trim();
-  call.reminder=els.reminderText.value.trim();
-  call.reminderText=call.reminder;
-  renderClientCalls();
-  closeCommentModal();
+  const nextNote=els.commentText.value.trim();
+  const nextReminderAt=els.reminderAt.value.trim();
+  const nextReminderText=els.reminderText.value.trim();
+  const previous={note:call.note, reminder:call.reminder, reminderText:call.reminderText, reminderAt:call.reminderAt};
+  call.note=nextNote;
+  call.reminder=nextReminderAt;
+  call.reminderAt=nextReminderAt;
+  call.reminderText=nextReminderText;
+  els.commentSaveStatus.textContent='Сохраняем...';
+  try{
+    await persistCallComment(call);
+    renderClientCalls();
+    closeCommentModal();
+  }catch(error){
+    call.note=previous.note;
+    call.reminder=previous.reminder;
+    call.reminderText=previous.reminderText;
+    call.reminderAt=previous.reminderAt;
+    console.log('Ошибка сохранения комментария:',error);
+    els.commentSaveStatus.textContent='Не удалось сохранить комментарий в таблицу';
+  }
+}
+function persistCallComment(call){
+  const payload={
+    phone:call.phone||'',
+    date:call.date||'',
+    time:call.time||'',
+    type:call.type||'',
+    duration:call.duration||'',
+    manager:call.manager||'',
+    comment:call.note||'',
+    note:call.note||'',
+    reminder:call.reminderAt||call.reminder||'',
+    reminder_text:call.reminderText||'',
+    reminderText:call.reminderText||'',
+    client:call.client||'',
+    call_id:call.id||'',
+    user_phone:call.userPhone||''
+  };
+  return fetch(CALLTRACK_CALLS_API_URL,{method:'POST',body:JSON.stringify(payload)})
+    .then((response)=>response.text())
+    .then((text)=>{
+      let data=null;
+      try{data=JSON.parse(text);}catch(error){console.log('Некорректный JSON при сохранении:',text);}
+      if(data&&data.status&&data.status!=='success') throw new Error(data.message||'SAVE_ERROR');
+      return data;
+    });
 }
 function setActiveClientPeriod(period){
   activeClientPeriod=period;
