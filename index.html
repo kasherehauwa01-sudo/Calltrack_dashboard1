@@ -12,6 +12,19 @@
     .container{max-width:1280px;margin:0 auto;display:grid;gap:20px}
     h1{font-size:clamp(1.4rem,2.5vw,2rem);font-weight:700}
 
+    .dashboard-tabs{display:flex;gap:8px;background:#e9edf4;border-radius:999px;padding:6px;width:max-content;max-width:100%;overflow-x:auto}
+    .tab-btn{border:0;border-radius:999px;background:transparent;color:#4b5563;padding:10px 18px;cursor:pointer;transition:.2s ease;font-size:.95rem;white-space:nowrap}
+    .tab-btn:hover{background:#dfe4ec;color:#111827}
+    .tab-btn.active{background:#fff;color:#111827;font-weight:600;box-shadow:0 4px 14px rgba(15,23,42,.11)}
+    .view{display:none}.view.active{display:grid;gap:20px}
+    .admin-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:24px;border:1px solid #e5e7eb;display:grid;gap:16px;max-width:720px}
+    .admin-card h2{font-size:1.25rem;color:#111827}.admin-card p{color:var(--muted);line-height:1.5}
+    .admin-login-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .admin-password{width:min(260px,100%);border:1px solid #d1d5db;border-radius:12px;padding:10px 12px;background:#fff;color:#111827}
+    .admin-login-btn{border:0;border-radius:999px;background:#111827;color:#fff;padding:10px 18px;cursor:pointer;transition:.2s ease}
+    .admin-login-btn:hover{background:#374151}.admin-error{color:#dc2626;font-size:.9rem;min-height:20px}
+    .admin-content{display:grid;gap:10px}.admin-content[hidden],.admin-lock[hidden]{display:none}
+
     .filter-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:14px;border:1px solid #e5e7eb;display:grid;gap:10px}
     .filter-title{color:var(--muted);font-size:.9rem}
 
@@ -54,6 +67,12 @@
   <main class="container">
     <h1>Аналитика звонков</h1>
 
+    <nav class="dashboard-tabs" aria-label="Разделы дашборда">
+      <button class="tab-btn active" data-tab="dashboard" type="button">Дашборд</button>
+      <button class="tab-btn" data-tab="admin" type="button">Админ панель</button>
+    </nav>
+
+    <div class="view active" id="dashboardView">
     <section class="filter-card period-card">
       <div>
         <div class="filter-title">Период</div>
@@ -116,13 +135,34 @@
       <article class="chart-card pie-chart"><h2>Типы звонков</h2><div class="chart-wrap"><canvas id="callTypesChart"></canvas></div></article>
       <article class="chart-card bar-chart"><h2>Менеджеры</h2><div class="chart-wrap"><canvas id="managerCallsChart"></canvas></div></article>
     </section>
+    </div>
+
+    <section class="view" id="adminView">
+      <article class="admin-card">
+        <div class="admin-lock" id="adminLock">
+          <h2>Админ панель</h2>
+          <p>Раздел защищен паролем. Введите пароль администратора, чтобы открыть настройки.</p>
+          <div class="admin-login-row">
+            <input class="admin-password" id="adminPassword" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Пароль" />
+            <button class="admin-login-btn" id="adminLoginBtn" type="button">Войти</button>
+          </div>
+          <div class="admin-error" id="adminError" aria-live="polite"></div>
+        </div>
+        <div class="admin-content" id="adminContent" hidden>
+          <h2>Админ панель</h2>
+          <p>Доступ открыт. Здесь можно разместить административные инструменты дашборда.</p>
+        </div>
+      </article>
+    </section>
   </main>
 
 <script>
+const ADMIN_PASSWORD='8852285';
 const CALLTRACK_CALLS_API_URL='https://script.google.com/macros/s/AKfycbxrpLKT3jE-AwhgItoH3z7hM486RIxq3wL2gOUqAzqz4cBtjuC9VkMCeHblLe-_OIccRA/exec';
 const CALLTRACK_MOP_CONTACTS_API_URL='https://script.google.com/macros/s/AKfycbwk0DCMRYdHN0qyCILjm8Ftyt518jktwDJ1YfP1lwl7NRmIrygKMu_z_8ntcbIT0Pbv/exec';
-const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeGroupBy='day'; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']);
-const els={managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags')};
+const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let isAdminUnlocked=false; let activeGroupBy='day'; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']);
+const els={dashboardView:document.getElementById('dashboardView'),adminView:document.getElementById('adminView'),managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags')};
+const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError')};
 const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>new Date(year, monthIndex, day, hours, minutes, seconds, 0);
 const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
 const endOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
@@ -178,6 +218,33 @@ function parseCallsPayload(text){
     (r.c||[]).forEach((cell,i)=>{obj[cols[i]]=getCellValue(cell);});
     return mapCallRecord(obj);
   });
+}
+
+
+function setActiveTab(tab){
+  const isAdmin=tab==='admin';
+  adminEls.tabs.forEach((btn)=>btn.classList.toggle('active',btn.dataset.tab===tab));
+  els.dashboardView.classList.toggle('active',!isAdmin);
+  els.adminView.classList.toggle('active',isAdmin);
+  if(isAdmin&&!isAdminUnlocked) setTimeout(()=>adminEls.password.focus(),0);
+}
+function unlockAdminPanel(){
+  const value=adminEls.password.value.trim();
+  if(value!==ADMIN_PASSWORD){
+    adminEls.error.textContent='Неверный пароль';
+    adminEls.password.value='';
+    adminEls.password.focus();
+    return;
+  }
+  isAdminUnlocked=true;
+  adminEls.error.textContent='';
+  adminEls.lock.hidden=true;
+  adminEls.content.hidden=false;
+}
+function bindAdminPanel(){
+  adminEls.tabs.forEach((btn)=>btn.addEventListener('click',()=>setActiveTab(btn.dataset.tab)));
+  adminEls.loginBtn.addEventListener('click',unlockAdminPanel);
+  adminEls.password.addEventListener('keydown',(e)=>{if(e.key==='Enter') unlockAdminPanel();});
 }
 
 function normalizeCallTypeLabel(rawType){
@@ -314,6 +381,7 @@ async function initDashboard(){try{
     nonEmptyTime: allCalls.filter((c)=>String(c.time||'').trim()!=='').length,
     nonEmptyManager: allCalls.filter((c)=>String(c.manager||'').trim()!=='').length
   });if(!allCalls.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}populateManagers(allCalls);bindFilters();updateGroupByAvailability(activePeriod);setGroupByForPeriod(activePeriod);hideNoData();applyFilters();}catch(error){console.log('Ошибка загрузки/обработки данных:',error);}}
+bindAdminPanel();
 initDashboard();
 </script>
 </body>
