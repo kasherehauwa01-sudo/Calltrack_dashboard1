@@ -574,23 +574,27 @@ function populateClientManagers(calls){
 function groupCallsByClient(calls){
   const range=getClientPeriodRange();
   if(!activeClientManager||!range) return [];
-  const grouped=new Map();
-  calls.forEach((call,index)=>{
-    const manager=(call?.manager||'Не указан').trim()||'Не указан';
-    if(manager!==activeClientManager) return;
-    if(String(call?.client||'').trim().toLowerCase()==='личный звонок') return;
-    const type=normalizeCallTypeLabel(call?.type);
-    if(!['Входящий','Исходящий'].includes(type)) return;
-    if(parseDurationSeconds(call?.duration)<10) return;
-    const dt=getCallDateTime(call);
-    if(!inDateRange(dt,range.from,range.to)) return;
-    const clientName=getClientKey(call);
-    if(!grouped.has(clientName)) grouped.set(clientName,{client:clientName,lastDate:dt,calls:[]});
-    const row=grouped.get(clientName);
-    row.calls.push({...call,__index:index,__dt:dt,__type:type});
-    if(!row.lastDate||dt>row.lastDate) row.lastDate=dt;
-  });
-  return [...grouped.values()].map((row)=>({...row,calls:row.calls.sort((a,b)=>a.__dt-b.__dt)})).sort((a,b)=>b.lastDate-a.lastDate);
+  const collect=(useRange)=>{
+    const grouped=new Map();
+    calls.forEach((call,index)=>{
+      const manager=(call?.manager||'Не указан').trim()||'Не указан';
+      if(manager!==activeClientManager) return;
+      if(String(call?.client||'').trim().toLowerCase()==='личный звонок') return;
+      const type=normalizeCallTypeLabel(call?.type);
+      if(!['Входящий','Исходящий'].includes(type)) return;
+      if(parseDurationSeconds(call?.duration)<10) return;
+      const dt=getCallDateTime(call);
+      if(useRange&&!inDateRange(dt,range.from,range.to)) return;
+      const clientName=getClientKey(call);
+      if(!grouped.has(clientName)) grouped.set(clientName,{client:clientName,lastDate:dt,calls:[]});
+      const row=grouped.get(clientName);
+      row.calls.push({...call,__index:index,__dt:dt,__type:type});
+      if(!row.lastDate||dt>row.lastDate) row.lastDate=dt;
+    });
+    return [...grouped.values()].map((row)=>({...row,calls:row.calls.sort((a,b)=>a.__dt-b.__dt)})).sort((a,b)=>b.lastDate-a.lastDate);
+  };
+  const groups=collect(true);
+  return groups.length?groups:collect(false);
 }
 function renderClientRow(group){
   const segments=group.calls.map((call)=>{
@@ -735,10 +739,11 @@ function bindClientCalls(){
 
 function normalizeCallTypeLabel(rawType){
   const t=String(rawType||'').trim().toLowerCase();
-  if(t.includes('вход')) return 'Входящий';
-  if(t.includes('исход')) return 'Исходящий';
-  if(t.includes('сброш')) return 'Сброшенный';
-  if(t.includes('неотвеч')||t.includes('пропущ')) return 'Неотвеченный';
+  if(!t) return '';
+  if(t.includes('вход')||t==='incoming'||t==='inbound'||t==='in') return 'Входящий';
+  if(t.includes('исход')||t==='outgoing'||t==='outbound'||t==='out') return 'Исходящий';
+  if(t.includes('сброш')||t==='dropped'||t==='drop'||t==='declined'||t==='rejected'||t==='cancelled'||t==='canceled') return 'Сброшенный';
+  if(t.includes('неотвеч')||t.includes('пропущ')||t==='missed'||t==='unanswered'||t==='no_answer'||t==='no answer') return 'Неотвеченный';
   return String(rawType||'').trim();
 }
 
@@ -852,7 +857,10 @@ function setActivePeriodPill(p){activePeriod=p;[...els.periodShell.querySelector
   updateGroupByAvailability(p);
   setGroupByForPeriod(p);
 }
-function applyFilters(){const g=activeGroupBy,p=activePeriod,range=getPeriodRange(p);let from=null,to=null;if(p==='custom'){from=els.dateFrom.value?startOfDay(parseLocalDate(els.dateFrom.value)):null;to=els.dateTo.value?endOfDay(parseLocalDate(els.dateTo.value)):null;if(!from||!to){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}}else if(range){from=range.from;to=range.to;}const filtered=allCalls.filter((c)=>{const client=String(c?.client||'').trim().toLowerCase();if(client==='личный звонок') return false; const type=normalizeCallTypeLabel(c?.type); const isMissed=type==='Неотвеченный'; const isDropped=type==='Сброшенный'; const mappedType=isMissed?'Пропущенные':(isDropped?'Сброшенные':type); const mappedUnanswered=isMissed?'Неотвеченные':mappedType; if(!(activeCallTypes.has(mappedType)||activeCallTypes.has(mappedUnanswered))) return false;const m=(c?.manager||'Не указан').trim()||'Не указан';if(!activeManagers.has(m))return false;if(!from||!to)return true;const norm=normalizeDate(c?.date);const dt=normalizeDateTime(c?.date,c?.time)||(norm?parseLocalDate(norm):null);if(!dt&&norm){const dObj=parseLocalDate(norm);if(!dObj) return false;const dayPoint=createLocalDate(dObj.getFullYear(),dObj.getMonth(),dObj.getDate(),12,0,0);return inDateRange(dayPoint,from,to);}return inDateRange(dt,from,to)});if(!filtered.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}hideNoData();const gg=['hour','day','week','month'].includes(g)?g:'day';const s=analyzeCalls(filtered,gg);renderKpi(s);renderCharts(s,gg);}
+function callMatchesDashboardBaseFilters(c){const client=String(c?.client||'').trim().toLowerCase();if(client==='личный звонок') return false;const type=normalizeCallTypeLabel(c?.type);const isMissed=type==='Неотвеченный';const isDropped=type==='Сброшенный';const mappedType=isMissed?'Пропущенные':(isDropped?'Сброшенные':type);const mappedUnanswered=isMissed?'Неотвеченные':mappedType;if(type&&!(activeCallTypes.has(mappedType)||activeCallTypes.has(mappedUnanswered))) return false;const m=(c?.manager||'Не указан').trim()||'Не указан';return activeManagers.has(m);}
+function callMatchesDateRange(c,from,to){if(!from||!to)return true;const norm=normalizeDate(c?.date);const dt=normalizeDateTime(c?.date,c?.time)||(norm?parseLocalDate(norm):null);if(!dt&&norm){const dObj=parseLocalDate(norm);if(!dObj) return false;const dayPoint=createLocalDate(dObj.getFullYear(),dObj.getMonth(),dObj.getDate(),12,0,0);return inDateRange(dayPoint,from,to);}return inDateRange(dt,from,to)}
+function resolveDashboardRange(p){const range=getPeriodRange(p);if(p==='custom'){const from=els.dateFrom.value?startOfDay(parseLocalDate(els.dateFrom.value)):null;const to=els.dateTo.value?endOfDay(parseLocalDate(els.dateTo.value)):null;return from&&to?{from,to}:null;}return range;}
+function applyFilters(){const g=activeGroupBy,p=activePeriod;let range=resolveDashboardRange(p);if(p==='custom'&&!range){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}const baseFiltered=allCalls.filter(callMatchesDashboardBaseFilters);let filtered=baseFiltered.filter((c)=>callMatchesDateRange(c,range?.from,range?.to));if(!filtered.length&&baseFiltered.length&&p!=='custom'){const latest=getLatestCallDate(baseFiltered);if(latest){periodReferenceDate=latest;range=resolveDashboardRange(p);filtered=baseFiltered.filter((c)=>callMatchesDateRange(c,range?.from,range?.to));}}if(!filtered.length&&baseFiltered.length){console.log('Нет данных в выбранном периоде, показываем доступные строки без ограничения периода');filtered=baseFiltered;}if(!filtered.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}hideNoData();const gg=['hour','day','week','month'].includes(g)?g:'day';const s=analyzeCalls(filtered,gg);renderKpi(s);renderCharts(s,gg);}
 function bindFilters(){renderCallTypeTags();els.callTypeTags.addEventListener('click',(e)=>{const tag=e.target.closest('.type-tag'); if(!tag) return; const t=tag.dataset.type; if(activeCallTypes.has(t)) activeCallTypes.delete(t); else activeCallTypes.add(t); renderCallTypeTags(); applyFilters();});els.periodShell.addEventListener('click',(e)=>{const btn=e.target.closest('.period-pill');if(!btn||!btn.dataset.period)return;setActivePeriodPill(btn.dataset.period);applyFilters();});els.applyCustomRangeBtn.addEventListener('click',()=>{setActivePeriodPill('custom');applyFilters();});els.groupByFilter.addEventListener('click',(e)=>{const btn=e.target.closest('.detail-pill'); if(!btn||btn.disabled) return; setActiveGroupBy(btn.dataset.group); applyFilters();});els.managerTags.addEventListener('click',(e)=>{const tag=e.target.closest('.manager-tag');if(!tag)return;const m=tag.dataset.manager;if(activeManagers.has(m)){activeManagers.delete(m);tag.classList.remove('active');}else{activeManagers.add(m);tag.classList.add('active');}applyFilters();});}
 async function initDashboard(){try{
   const callsPayload=window.calltrackApi?.loadCalls
