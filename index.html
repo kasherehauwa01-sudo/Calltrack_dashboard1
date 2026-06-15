@@ -21,11 +21,21 @@
     .view{display:none;grid-column:2}.view.active{display:grid;gap:20px}
     .admin-card,.placeholder-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:24px;border:1px solid #e5e7eb;display:grid;gap:16px;max-width:720px}
     .admin-card h2,.placeholder-card h2{font-size:1.25rem;color:#111827}.admin-card p,.placeholder-card p{color:var(--muted);line-height:1.5}
+    #adminView .admin-card{max-width:none}
     .admin-login-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .admin-password{width:min(260px,100%);border:1px solid #d1d5db;border-radius:12px;padding:10px 12px;background:#fff;color:#111827}
     .admin-login-btn{border:0;border-radius:999px;background:#111827;color:#fff;padding:10px 18px;cursor:pointer;transition:.2s ease}
     .admin-login-btn:hover{background:#374151}.admin-error{color:#dc2626;font-size:.9rem;min-height:20px}
-    .admin-content{display:grid;gap:10px}.admin-content[hidden],.admin-lock[hidden]{display:none}
+    .admin-content{display:grid;gap:14px}.admin-content[hidden],.admin-lock[hidden]{display:none}
+    .admin-subtabs{display:flex;gap:8px;flex-wrap:wrap;background:#eceff4;border-radius:16px;padding:6px;width:max-content;max-width:100%}
+    .admin-subtab{border:0;border-radius:999px;background:transparent;color:#4b5563;padding:9px 16px;cursor:pointer;transition:.2s ease}
+    .admin-subtab:hover{background:#dfe4ec;color:#111827}.admin-subtab.active{background:#fff;color:#111827;font-weight:600;box-shadow:0 4px 14px rgba(15,23,42,.11)}
+    .admin-panel{display:grid;gap:12px}.admin-panel[hidden]{display:none}
+    .registry-wrap{overflow:auto;border:1px solid #e5e7eb;border-radius:14px;background:#fff;max-height:62vh}
+    .registry-table{width:100%;border-collapse:collapse;min-width:1280px;font-size:.86rem}
+    .registry-table th,.registry-table td{padding:10px 12px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top;white-space:nowrap}
+    .registry-table th{position:sticky;top:0;background:#f8fafc;color:#4b5563;font-weight:600;z-index:1}
+    .registry-empty{padding:18px;color:var(--muted)}
 
     .filter-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:14px;border:1px solid #e5e7eb;display:grid;gap:10px}
     .filter-title{color:var(--muted);font-size:.9rem}
@@ -203,7 +213,13 @@
         </div>
         <div class="admin-content" id="adminContent" hidden>
           <h2>Админ панель</h2>
-          <p>Доступ открыт. Здесь можно разместить административные инструменты дашборда.</p>
+          <div class="admin-subtabs" role="tablist" aria-label="Разделы админ панели">
+            <button class="admin-subtab active" data-admin-tab="registry" type="button">Реестр</button>
+          </div>
+          <section class="admin-panel" id="adminRegistryPanel">
+            <p>Полный список звонков из SQL таблицы calls.</p>
+            <div class="registry-wrap" id="adminRegistryTable"><div class="registry-empty">Данные загружаются...</div></div>
+          </section>
         </div>
       </article>
     </section>
@@ -253,7 +269,7 @@ console.log('calltrackApi', window.calltrackApi);
 console.log('SQL_CALLS_API_URL', SQL_CALLS_API_URL);
 const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeClientPeriod='month'; let activeClientManager=''; let editingCallIndex=null; let isAdminUnlocked=false; let activeGroupBy='day'; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']);
 const els={dashboardView:document.getElementById('dashboardView'),clientCallsView:document.getElementById('clientCallsView'),adminView:document.getElementById('adminView'),managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags'),clientManagerTags:document.getElementById('clientManagerTags'),clientPeriodShell:document.getElementById('clientPeriodShell'),clientDateFrom:document.getElementById('clientDateFrom'),clientDateTo:document.getElementById('clientDateTo'),clientApplyRangeBtn:document.getElementById('clientApplyRangeBtn'),clientCallsList:document.getElementById('clientCallsList'),commentModal:document.getElementById('commentModal'),commentInfo:document.getElementById('commentInfo'),commentText:document.getElementById('commentText'),reminderText:document.getElementById('reminderText'),reminderAt:document.getElementById('reminderAt'),commentSaveStatus:document.getElementById('commentSaveStatus'),commentCancelBtn:document.getElementById('commentCancelBtn'),commentSaveBtn:document.getElementById('commentSaveBtn'),clientHistoryModal:document.getElementById('clientHistoryModal'),clientHistoryInfo:document.getElementById('clientHistoryInfo'),clientHistoryList:document.getElementById('clientHistoryList'),clientHistoryCloseBtn:document.getElementById('clientHistoryCloseBtn')};
-const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError')};
+const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError'),subtabs:document.querySelectorAll('.admin-subtab'),registryPanel:document.getElementById('adminRegistryPanel'),registryTable:document.getElementById('adminRegistryTable')};
 const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>new Date(year, monthIndex, day, hours, minutes, seconds, 0);
 const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
 const endOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
@@ -268,6 +284,7 @@ const inDateRange=(c,f,t)=>!!(c&&f&&t&&c>=f&&c<=t);
 const formatRangeLabel=(f,t)=>{const m=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];return `${f.getDate()} — ${t.getDate()} ${m[t.getMonth()]}`};
 function mapCallRecord(obj){
   return {
+    sqlId: obj.id || '',
     date: obj.call_date || obj.date || obj.Date || obj['Дата'] || '',
     time: obj.call_time || obj.time || obj.Time || obj['Время'] || '',
     phone: obj.phone || obj.Phone || obj['Номер телефона'] || obj['Телефон'] || '',
@@ -281,7 +298,9 @@ function mapCallRecord(obj){
     reminderAt: obj.reminderAt || obj.reminder_at || obj['Дата напоминания'] || '',
     client: obj.client || obj.Client || obj['Клиент'] || '',
     id: obj.call_id || obj.id || obj.ID || obj['ID'] || '',
-    userPhone: obj.user_phone || obj.userPhone || obj['Номер телефона пользователя'] || ''
+    userPhone: obj.user_phone || obj.userPhone || obj['Номер телефона пользователя'] || '',
+    createdAt: obj.created_at || '',
+    updatedAt: obj.updated_at || ''
   };
 }
 function parseCallsPayload(payload){
@@ -311,11 +330,43 @@ function unlockAdminPanel(){
   adminEls.error.textContent='';
   adminEls.lock.hidden=true;
   adminEls.content.hidden=false;
+  setActiveAdminTab('registry');
+  renderAdminRegistry();
 }
 function bindAdminPanel(){
   adminEls.tabs.forEach((btn)=>btn.addEventListener('click',()=>setActiveTab(btn.dataset.tab)));
   adminEls.loginBtn.addEventListener('click',unlockAdminPanel);
   adminEls.password.addEventListener('keydown',(e)=>{if(e.key==='Enter') unlockAdminPanel();});
+  adminEls.subtabs.forEach((btn)=>btn.addEventListener('click',()=>setActiveAdminTab(btn.dataset.adminTab)));
+}
+
+function setActiveAdminTab(tab){
+  adminEls.subtabs.forEach((btn)=>btn.classList.toggle('active',btn.dataset.adminTab===tab));
+  adminEls.registryPanel.hidden=tab!=='registry';
+}
+function renderAdminRegistry(calls=allCalls){
+  const columns=[
+    ['id',(call)=>call.sqlId],
+    ['call_date',(call)=>call.date],
+    ['call_time',(call)=>call.time],
+    ['phone',(call)=>formatPhoneForDisplay(call.phone)||call.phone],
+    ['call_type',(call)=>call.type],
+    ['duration',(call)=>call.duration],
+    ['manager',(call)=>call.manager],
+    ['comment',(call)=>call.note],
+    ['tag',(call)=>call.tag],
+    ['reminder',(call)=>call.reminder],
+    ['reminder_text',(call)=>call.reminderText],
+    ['client',(call)=>call.client],
+    ['call_id',(call)=>call.id],
+    ['user_phone',(call)=>formatPhoneForDisplay(call.userPhone)||call.userPhone],
+    ['created_at',(call)=>call.createdAt],
+    ['updated_at',(call)=>call.updatedAt]
+  ];
+  if(!calls.length){adminEls.registryTable.innerHTML='<div class="registry-empty">В реестре пока нет данных</div>';return;}
+  const head=columns.map(([label])=>`<th>${escapeHtml(label)}</th>`).join('');
+  const body=calls.map((call)=>`<tr>${columns.map(([,getter])=>`<td>${escapeHtml(getter(call)||'')}</td>`).join('')}</tr>`).join('');
+  adminEls.registryTable.innerHTML=`<table class="registry-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
 
@@ -672,7 +723,7 @@ async function initDashboard(){try{
     nonEmptyDate: allCalls.filter((c)=>String(c.date||'').trim()!=='').length,
     nonEmptyTime: allCalls.filter((c)=>String(c.time||'').trim()!=='').length,
     nonEmptyManager: allCalls.filter((c)=>String(c.manager||'').trim()!=='').length
-  });if(!allCalls.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}populateManagers(allCalls);populateClientManagers(allCalls);renderClientCalls();bindFilters();bindClientCalls();updateGroupByAvailability(activePeriod);setGroupByForPeriod(activePeriod);hideNoData();applyFilters();}catch(error){console.error('Ошибка загрузки/обработки данных:',error);els.emptyState.textContent='Не удалось загрузить данные с сервера';renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();}}
+  });if(!allCalls.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}populateManagers(allCalls);populateClientManagers(allCalls);renderClientCalls();renderAdminRegistry(allCalls);bindFilters();bindClientCalls();updateGroupByAvailability(activePeriod);setGroupByForPeriod(activePeriod);hideNoData();applyFilters();}catch(error){console.error('Ошибка загрузки/обработки данных:',error);els.emptyState.textContent='Не удалось загрузить данные с сервера';renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();}}
 bindAdminPanel();
 initDashboard();
 </script>
