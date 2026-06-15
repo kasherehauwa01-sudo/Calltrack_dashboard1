@@ -466,6 +466,9 @@ function sortRegistryCalls(calls){
 }
 function deleteSelectedRegistryRows(){
   if(!selectedRegistryRows.size) return;
+  const count=selectedRegistryRows.size;
+  const confirmed=window.confirm(`Удалить выделенные строки (${count}) из реестра?`);
+  if(!confirmed) return;
   allCalls=allCalls.filter((call)=>!selectedRegistryRows.has(getRegistryRowKey(call)));
   selectedRegistryRows.clear();
   renderAdminRegistry();
