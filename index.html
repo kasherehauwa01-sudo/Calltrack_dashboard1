@@ -490,7 +490,7 @@ async function deleteSelectedRegistryRows(){
     applyFilters();
   }catch(error){
     console.error('Ошибка удаления строк из SQL:',error);
-    window.alert('Не удалось удалить выбранные строки из SQL таблицы');
+    window.alert(`Не удалось удалить выбранные строки из SQL таблицы: ${error.message}`);
   }finally{
     adminEls.registryDeleteSelectedBtn.disabled=false;
     adminEls.registryDeleteSelectedBtn.textContent='Удалить выделенные';

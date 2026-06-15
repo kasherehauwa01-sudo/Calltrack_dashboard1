@@ -3,7 +3,8 @@
   const ENDPOINTS={
     calls:`${API_BASE}/get_calls.php`,
     dashboard:`${API_BASE}/dashboard.php`,
-    deleteCalls:`${API_BASE}/delete_calls.php`
+    deleteCalls:`${API_BASE}/delete_calls.php`,
+    deleteCall:`${API_BASE}/delete_call.php`
   };
 
   function buildQuery(filters={}){
@@ -48,15 +49,25 @@
   }
 
   async function deleteCalls(records=[]){
-    const ids=records.map((record)=>record.sqlId||record.sql_id||record.ID).filter(Boolean);
-    const callIds=records.map((record)=>record.callId||record.call_id||record.id).filter(Boolean);
+    const ids=[...new Set(records.map((record)=>record.sqlId||record.sql_id||record.ID).filter(Boolean).map(String))];
+    const callIds=[...new Set(records.map((record)=>record.callId||record.call_id||record.id).filter(Boolean).map(String))];
+    if(!ids.length&&!callIds.length) throw new Error('Не найдены id выбранных строк для удаления');
     const payload={ids,call_ids:callIds};
+    const json={headers:{'Content-Type':'application/json'}};
+    const query=new URLSearchParams();
+    if(ids.length) query.set('ids',ids.join(','));
+    if(callIds.length) query.set('call_ids',callIds.join(','));
+    const queryString=query.toString();
     const requests=[
-      [ENDPOINTS.deleteCalls,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}],
-      [ENDPOINTS.calls,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}],
-      [ENDPOINTS.calls,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',...payload})}]
+      [ENDPOINTS.deleteCalls,{method:'POST',...json,body:JSON.stringify(payload)}],
+      [ENDPOINTS.deleteCall,{method:'POST',...json,body:JSON.stringify(payload)}],
+      [`${ENDPOINTS.deleteCalls}${queryString?`?${queryString}`:''}`,{method:'DELETE'}],
+      [`${ENDPOINTS.calls}?action=delete${queryString?`&${queryString}`:''}`,{method:'POST',...json,body:JSON.stringify(payload)}],
+      [`${ENDPOINTS.calls}?action=delete${queryString?`&${queryString}`:''}`,{method:'DELETE'}],
+      [ENDPOINTS.calls,{method:'DELETE',...json,body:JSON.stringify(payload)}],
+      [ENDPOINTS.calls,{method:'POST',...json,body:JSON.stringify({action:'delete',...payload})}]
     ];
-    let lastError=null;
+    const errors=[];
     for(const [url,options] of requests){
       try{
         const data=await requestJson(url,options);
@@ -64,10 +75,10 @@
         if(!isDeleteSuccess(data)) throw new Error('DELETE_NOT_CONFIRMED');
         return data;
       }catch(error){
-        lastError=error;
+        errors.push(`${url}: ${error.message}`);
       }
     }
-    throw lastError||new Error('DELETE_ERROR');
+    throw new Error(`SQL API не подтвердил удаление. ${errors[0]||'DELETE_ERROR'}`);
   }
 
   window.calltrackApi=window.calltrackApi||{};
