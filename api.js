@@ -52,20 +52,24 @@
     const ids=[...new Set(records.map((record)=>record.sqlId||record.sql_id||record.ID).filter(Boolean).map(String))];
     const callIds=[...new Set(records.map((record)=>record.callId||record.call_id||record.id).filter(Boolean).map(String))];
     if(!ids.length&&!callIds.length) throw new Error('Не найдены id выбранных строк для удаления');
-    const payload={ids,call_ids:callIds};
+    const payload={ids,call_ids:callIds,id:ids[0]||'',call_id:callIds[0]||''};
     const json={headers:{'Content-Type':'application/json'}};
     const query=new URLSearchParams();
-    if(ids.length) query.set('ids',ids.join(','));
-    if(callIds.length) query.set('call_ids',callIds.join(','));
+    if(ids.length){query.set('ids',ids.join(','));query.set('id',ids[0]);}
+    if(callIds.length){query.set('call_ids',callIds.join(','));query.set('call_id',callIds[0]);}
     const queryString=query.toString();
+    const form=new URLSearchParams({action:'delete',...Object.fromEntries(query.entries())});
     const requests=[
-      [ENDPOINTS.deleteCalls,{method:'POST',...json,body:JSON.stringify(payload)}],
-      [ENDPOINTS.deleteCall,{method:'POST',...json,body:JSON.stringify(payload)}],
-      [`${ENDPOINTS.deleteCalls}${queryString?`?${queryString}`:''}`,{method:'DELETE'}],
-      [`${ENDPOINTS.calls}?action=delete${queryString?`&${queryString}`:''}`,{method:'POST',...json,body:JSON.stringify(payload)}],
+      [ENDPOINTS.calls,{method:'POST',...json,body:JSON.stringify({action:'delete',...payload})}],
+      [ENDPOINTS.calls,{method:'POST',...json,body:JSON.stringify({action:'delete_call',...payload})}],
+      [ENDPOINTS.calls,{method:'POST',...json,body:JSON.stringify({action:'delete_calls',...payload})}],
+      [ENDPOINTS.calls,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:form.toString()}],
+      [`${ENDPOINTS.calls}?action=delete${queryString?`&${queryString}`:''}`,{method:'POST'}],
       [`${ENDPOINTS.calls}?action=delete${queryString?`&${queryString}`:''}`,{method:'DELETE'}],
       [ENDPOINTS.calls,{method:'DELETE',...json,body:JSON.stringify(payload)}],
-      [ENDPOINTS.calls,{method:'POST',...json,body:JSON.stringify({action:'delete',...payload})}]
+      [ENDPOINTS.deleteCalls,{method:'POST',...json,body:JSON.stringify(payload)}],
+      [ENDPOINTS.deleteCall,{method:'POST',...json,body:JSON.stringify(payload)}],
+      [`${ENDPOINTS.deleteCalls}${queryString?`?${queryString}`:''}`,{method:'DELETE'}]
     ];
     const errors=[];
     for(const [url,options] of requests){

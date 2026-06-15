@@ -478,8 +478,8 @@ async function deleteSelectedRegistryRows(){
     }else{
       const ids=selectedCalls.map((call)=>call.sqlId).filter(Boolean);
       const callIds=selectedCalls.map((call)=>call.id).filter(Boolean);
-      const response=await fetch('/vr/calltrack/api/delete_calls.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,call_ids:callIds})});
-      if(!response.ok) throw new Error(`API ${response.status}: /vr/calltrack/api/delete_calls.php`);
+      const response=await fetch(`${SQL_CALLS_API_URL}?action=delete&ids=${encodeURIComponent(ids.join(','))}&call_ids=${encodeURIComponent(callIds.join(','))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',ids,call_ids:callIds,id:ids[0]||'',call_id:callIds[0]||''})});
+      if(!response.ok) throw new Error(`API ${response.status}: ${SQL_CALLS_API_URL}`);
       const data=await response.json().catch(()=>null);
       if(Array.isArray(data)||data?.status==='error') throw new Error(data?.message||'DELETE_NOT_CONFIRMED');
     }
