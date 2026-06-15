@@ -6,6 +6,7 @@
   <title>Дашборд отдела продаж</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%23f8fafc%22/%3E%3Cg%20fill%3D%22%2316a34a%22%3E%3Cellipse%20cx%3D%2224%22%20cy%3D%2222%22%20rx%3D%2212%22%20ry%3D%2214%22%20transform%3D%22rotate%28-45%2024%2022%29%22/%3E%3Cellipse%20cx%3D%2240%22%20cy%3D%2222%22%20rx%3D%2212%22%20ry%3D%2214%22%20transform%3D%22rotate%2845%2040%2022%29%22/%3E%3Cellipse%20cx%3D%2224%22%20cy%3D%2238%22%20rx%3D%2212%22%20ry%3D%2214%22%20transform%3D%22rotate%2845%2024%2038%29%22/%3E%3Cellipse%20cx%3D%2240%22%20cy%3D%2238%22%20rx%3D%2212%22%20ry%3D%2214%22%20transform%3D%22rotate%28-45%2040%2038%29%22/%3E%3C/g%3E%3Cpath%20d%3D%22M32%2032%20C38%2040%2043%2049%2048%2058%22%20fill%3D%22none%22%20stroke%3D%22%2315803d%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="api.js"></script>
   <style>
     :root { --bg:#f4f6fb; --card:#fff; --text:#1f2a37; --muted:#6b7280; --shadow:0 10px 30px rgba(15,23,42,.08); --radius:14px; }
     *{box-sizing:border-box;margin:0;padding:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
@@ -245,8 +246,7 @@
 
 <script>
 const ADMIN_PASSWORD='8852285';
-const CALLTRACK_CALLS_API_URL='https://script.google.com/macros/s/AKfycbxrpLKT3jE-AwhgItoH3z7hM486RIxq3wL2gOUqAzqz4cBtjuC9VkMCeHblLe-_OIccRA/exec';
-const CALLTRACK_MOP_CONTACTS_API_URL='https://script.google.com/macros/s/AKfycbwk0DCMRYdHN0qyCILjm8Ftyt518jktwDJ1YfP1lwl7NRmIrygKMu_z_8ntcbIT0Pbv/exec';
+const SQL_CALLS_API_URL=window.calltrackApi.endpoints.calls;
 const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeClientPeriod='month'; let activeClientManager=''; let editingCallIndex=null; let isAdminUnlocked=false; let activeGroupBy='day'; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']);
 const els={dashboardView:document.getElementById('dashboardView'),clientCallsView:document.getElementById('clientCallsView'),adminView:document.getElementById('adminView'),managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags'),clientManagerTags:document.getElementById('clientManagerTags'),clientPeriodShell:document.getElementById('clientPeriodShell'),clientDateFrom:document.getElementById('clientDateFrom'),clientDateTo:document.getElementById('clientDateTo'),clientApplyRangeBtn:document.getElementById('clientApplyRangeBtn'),clientCallsList:document.getElementById('clientCallsList'),commentModal:document.getElementById('commentModal'),commentInfo:document.getElementById('commentInfo'),commentText:document.getElementById('commentText'),reminderText:document.getElementById('reminderText'),reminderAt:document.getElementById('reminderAt'),commentSaveStatus:document.getElementById('commentSaveStatus'),commentCancelBtn:document.getElementById('commentCancelBtn'),commentSaveBtn:document.getElementById('commentSaveBtn'),clientHistoryModal:document.getElementById('clientHistoryModal'),clientHistoryInfo:document.getElementById('clientHistoryInfo'),clientHistoryList:document.getElementById('clientHistoryList'),clientHistoryCloseBtn:document.getElementById('clientHistoryCloseBtn')};
 const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError')};
@@ -254,58 +254,35 @@ const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>ne
 const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
 const endOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
 const formatDateLocal=(d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-const parseLocalDate=(v)=>{if(!v)return null;const raw=String(v).trim();let gviz=raw.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})(?:,\d{1,2},\d{1,2},\d{1,2})?\)$/);if(gviz){const y=Number(gviz[1]),mo=Number(gviz[2]),d=Number(gviz[3]);return createLocalDate(y,mo,d,0,0,0);}const isoAtStart=raw.slice(0,10);let m=isoAtStart.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);const parsed=createLocalDate(y,mo-1,d,0,0,0);if(/[tT].*[zZ]|[+-]\d{2}:?\d{2}/.test(raw)){parsed.setDate(parsed.getDate()+1);}return parsed;}m=raw.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);return createLocalDate(y,mo-1,d,0,0,0);}m=raw.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})/);if(m){const d=Number(m[1]),mo=Number(m[2]),yRaw=String(m[3]);const y=Number(yRaw.length===2?`20${yRaw}`:yRaw);return createLocalDate(y,mo-1,d,0,0,0);}return null;};
+const parseLocalDate=(v)=>{if(!v)return null;const raw=String(v).trim();let dateCtor=raw.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})(?:,\d{1,2},\d{1,2},\d{1,2})?\)$/);if(dateCtor){const y=Number(dateCtor[1]),mo=Number(dateCtor[2]),d=Number(dateCtor[3]);return createLocalDate(y,mo,d,0,0,0);}const isoAtStart=raw.slice(0,10);let m=isoAtStart.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);const parsed=createLocalDate(y,mo-1,d,0,0,0);if(/[tT].*[zZ]|[+-]\d{2}:?\d{2}/.test(raw)){parsed.setDate(parsed.getDate()+1);}return parsed;}m=raw.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);if(m){const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]);return createLocalDate(y,mo-1,d,0,0,0);}m=raw.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})/);if(m){const d=Number(m[1]),mo=Number(m[2]),yRaw=String(m[3]);const y=Number(yRaw.length===2?`20${yRaw}`:yRaw);return createLocalDate(y,mo-1,d,0,0,0);}return null;};
 const normalizeDate=(v)=>{const d=parseLocalDate(v);return d?formatDateLocal(d):null};
-const parseTimeParts=(t)=>{const raw=String(t??'').trim();if(!raw)return null;const gvizTime=raw.match(/^\[(\d{1,2}),(\d{1,2})(?:,(\d{1,2}))?\]$/);if(gvizTime){const hh=Math.min(23,Math.max(0,Number(gvizTime[1])));const mm=Math.min(59,Math.max(0,Number(gvizTime[2])));const ss=Math.min(59,Math.max(0,Number(gvizTime[3]||0)));return {hh,mm,ss};}const tzMatch=raw.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})/);if(tzMatch){const y=Number(tzMatch[1]);const mo=Number(tzMatch[2]);const d=Number(tzMatch[3]);const hh=Number(tzMatch[4]);const mm=Number(tzMatch[5]);const ss=Number(tzMatch[6]||0);const tz=tzMatch[7];let offsetMin=0;if(tz!=='Z'){const sign=tz[0]==='-'?-1:1;const tzh=Number(tz.slice(1,3));const tzm=Number(tz.replace(':','').slice(3,5));offsetMin=sign*(tzh*60+tzm);}const utcMs=Date.UTC(y,mo-1,d,hh,mm,ss)-offsetMin*60000;const local=new Date(utcMs);return {hh:local.getHours(),mm:local.getMinutes(),ss:local.getSeconds()};}let m=raw.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);if(!m)m=raw.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?/);if(!m)return null;const ph=Math.min(23,Math.max(0,Number(m[1])));const pm=Math.min(59,Math.max(0,Number(m[2])));const ps=Math.min(59,Math.max(0,Number(m[3]||0)));return {hh:ph,mm:pm,ss:ps};};
+const parseTimeParts=(t)=>{const raw=String(t??'').trim();if(!raw)return null;const arrayTime=raw.match(/^\[(\d{1,2}),(\d{1,2})(?:,(\d{1,2}))?\]$/);if(arrayTime){const hh=Math.min(23,Math.max(0,Number(arrayTime[1])));const mm=Math.min(59,Math.max(0,Number(arrayTime[2])));const ss=Math.min(59,Math.max(0,Number(arrayTime[3]||0)));return {hh,mm,ss};}const tzMatch=raw.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})/);if(tzMatch){const y=Number(tzMatch[1]);const mo=Number(tzMatch[2]);const d=Number(tzMatch[3]);const hh=Number(tzMatch[4]);const mm=Number(tzMatch[5]);const ss=Number(tzMatch[6]||0);const tz=tzMatch[7];let offsetMin=0;if(tz!=='Z'){const sign=tz[0]==='-'?-1:1;const tzh=Number(tz.slice(1,3));const tzm=Number(tz.replace(':','').slice(3,5));offsetMin=sign*(tzh*60+tzm);}const utcMs=Date.UTC(y,mo-1,d,hh,mm,ss)-offsetMin*60000;const local=new Date(utcMs);return {hh:local.getHours(),mm:local.getMinutes(),ss:local.getSeconds()};}let m=raw.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);if(!m)m=raw.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?/);if(!m)return null;const ph=Math.min(23,Math.max(0,Number(m[1])));const pm=Math.min(59,Math.max(0,Number(m[2])));const ps=Math.min(59,Math.max(0,Number(m[3]||0)));return {hh:ph,mm:pm,ss:ps};};
 const normalizeDateTime=(d,t)=>{const dateObj=parseLocalDate(d);if(!dateObj)return null;const parts=parseTimeParts(t);if(!parts)return null;return createLocalDate(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), parts.hh, parts.mm, parts.ss);};
 const getWeekStartISO=(x)=>{const d=createLocalDate(x.getFullYear(), x.getMonth(), x.getDate(),0,0,0);const day=d.getDay()||7;d.setDate(d.getDate()-day+1);return formatDateLocal(d)};
 const getQuarter=(d)=>Math.floor(d.getMonth()/3)+1;
 const inDateRange=(c,f,t)=>!!(c&&f&&t&&c>=f&&c<=t);
 const formatRangeLabel=(f,t)=>{const m=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];return `${f.getDate()} — ${t.getDate()} ${m[t.getMonth()]}`};
-function getCellValue(cell){
-  if(!cell) return '';
-  if(cell.f!==null && cell.f!==undefined && cell.f!=='') return cell.f;
-  if(cell.v!==null && cell.v!==undefined) return cell.v;
-  return '';
-}
-
-
 function mapCallRecord(obj){
   return {
-    date: obj.date || obj.Date || obj['Дата'] || '',
-    time: obj.time || obj.Time || obj['Время'] || '',
+    date: obj.call_date || obj.date || obj.Date || obj['Дата'] || '',
+    time: obj.call_time || obj.time || obj.Time || obj['Время'] || '',
     phone: obj.phone || obj.Phone || obj['Номер телефона'] || obj['Телефон'] || '',
-    type: obj.type || obj.Type || obj['Тип звонка'] || obj['Тип'] || '',
+    type: obj.call_type || obj.type || obj.Type || obj['Тип звонка'] || obj['Тип'] || '',
     duration: obj.duration || obj.Duration || obj['Длительность'] || '',
     manager: obj.manager || obj.Manager || obj['Менеджер'] || '',
-    note: obj.note || obj.comment || obj.Note || obj.Comment || obj['Комментарий'] || '',
+    note: obj.comment || obj.note || obj.Note || obj.Comment || obj['Комментарий'] || '',
     tag: obj.tag || obj.Tag || obj['Тег'] || '',
     reminder: obj.reminder || obj.Reminder || obj['Напоминание'] || '',
     reminderText: obj.reminderText || obj.reminder_text || obj.ReminderText || obj['Текст напоминания'] || '',
     reminderAt: obj.reminderAt || obj.reminder_at || obj['Дата напоминания'] || '',
     client: obj.client || obj.Client || obj['Клиент'] || '',
-    id: obj.id || obj.ID || obj.call_id || obj['ID'] || '',
+    id: obj.call_id || obj.id || obj.ID || obj['ID'] || '',
     userPhone: obj.user_phone || obj.userPhone || obj['Номер телефона пользователя'] || ''
   };
 }
-function parseCallsPayload(text){
-  try {
-    const raw=JSON.parse(text);
-    if(Array.isArray(raw)) return raw.map(mapCallRecord);
-    if(raw&&raw.status==='error') { console.log('Calltrack API error:', raw); return []; }
-  } catch (_) {}
-  const start=text.indexOf('{');
-  const end=text.lastIndexOf('}');
-  if(start<0||end<0||end<=start) return [];
-  const gviz=JSON.parse(text.substring(start,end+1));
-  const cols=(gviz.table?.cols||[]).map((c)=>c.label||c.id||'');
-  const rows=gviz.table?.rows||[];
-  console.log(rows[0]);
-  return rows.map((r)=>{
-    const obj={};
-    (r.c||[]).forEach((cell,i)=>{obj[cols[i]]=getCellValue(cell);});
-    return mapCallRecord(obj);
-  });
+function parseCallsPayload(payload){
+  const raw=Array.isArray(payload)?payload:(Array.isArray(payload?.data)?payload.data:(Array.isArray(payload?.calls)?payload.calls:[]));
+  return raw.map(mapCallRecord);
 }
 
 
@@ -501,7 +478,7 @@ async function saveComment(){
     call.reminderText=previous.reminderText;
     call.reminderAt=previous.reminderAt;
     console.log('Ошибка сохранения комментария:',error);
-    els.commentSaveStatus.textContent='Не удалось сохранить комментарий в таблицу';
+    els.commentSaveStatus.textContent='Не удалось сохранить комментарий на сервер';
   }
 }
 function persistCallComment(call){
@@ -521,7 +498,7 @@ function persistCallComment(call){
     call_id:call.id||'',
     user_phone:call.userPhone||''
   };
-  return fetch(CALLTRACK_CALLS_API_URL,{method:'POST',body:JSON.stringify(payload)})
+  return fetch(SQL_CALLS_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then((response)=>response.text())
     .then((text)=>{
       let data=null;
@@ -679,10 +656,8 @@ function setActivePeriodPill(p){activePeriod=p;[...els.periodShell.querySelector
 function applyFilters(){const g=activeGroupBy,p=activePeriod,range=getPeriodRange(p);let from=null,to=null;if(p==='custom'){from=els.dateFrom.value?startOfDay(parseLocalDate(els.dateFrom.value)):null;to=els.dateTo.value?endOfDay(parseLocalDate(els.dateTo.value)):null;if(!from||!to){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}}else if(range){from=range.from;to=range.to;}const filtered=allCalls.filter((c)=>{const client=String(c?.client||'').trim().toLowerCase();if(client==='личный звонок') return false; const type=normalizeCallTypeLabel(c?.type); const isMissed=type==='Неотвеченный'; const isDropped=type==='Сброшенный'; const mappedType=isMissed?'Пропущенные':(isDropped?'Сброшенные':type); const mappedUnanswered=isMissed?'Неотвеченные':mappedType; if(!(activeCallTypes.has(mappedType)||activeCallTypes.has(mappedUnanswered))) return false;const m=(c?.manager||'Не указан').trim()||'Не указан';if(!activeManagers.has(m))return false;if(!from||!to)return true;const norm=normalizeDate(c?.date);const dt=normalizeDateTime(c?.date,c?.time)||(norm?parseLocalDate(norm):null);if(!dt&&norm){const dObj=parseLocalDate(norm);if(!dObj) return false;const dayPoint=createLocalDate(dObj.getFullYear(),dObj.getMonth(),dObj.getDate(),12,0,0);return inDateRange(dayPoint,from,to);}return inDateRange(dt,from,to)});if(!filtered.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}hideNoData();const gg=['hour','day','week','month'].includes(g)?g:'day';const s=analyzeCalls(filtered,gg);renderKpi(s);renderCharts(s,gg);}
 function bindFilters(){renderCallTypeTags();els.callTypeTags.addEventListener('click',(e)=>{const tag=e.target.closest('.type-tag'); if(!tag) return; const t=tag.dataset.type; if(activeCallTypes.has(t)) activeCallTypes.delete(t); else activeCallTypes.add(t); renderCallTypeTags(); applyFilters();});els.periodShell.addEventListener('click',(e)=>{const btn=e.target.closest('.period-pill');if(!btn||!btn.dataset.period)return;setActivePeriodPill(btn.dataset.period);applyFilters();});els.applyCustomRangeBtn.addEventListener('click',()=>{setActivePeriodPill('custom');applyFilters();});els.groupByFilter.addEventListener('click',(e)=>{const btn=e.target.closest('.detail-pill'); if(!btn||btn.disabled) return; setActiveGroupBy(btn.dataset.group); applyFilters();});els.managerTags.addEventListener('click',(e)=>{const tag=e.target.closest('.manager-tag');if(!tag)return;const m=tag.dataset.manager;if(activeManagers.has(m)){activeManagers.delete(m);tag.classList.remove('active');}else{activeManagers.add(m);tag.classList.add('active');}applyFilters();});}
 async function initDashboard(){try{
-  // Важно: дашборд аналитики звонков должен читать только таблицу Calltrack (история звонков).
-  // URL Calltrack_mop оставлен отдельно, чтобы не смешивать источники данных.
-  const response=await fetch(CALLTRACK_CALLS_API_URL);const text=await response.text();
-  allCalls=parseCallsPayload(text);
+  const callsPayload=await window.calltrackApi.loadCalls();
+  allCalls=parseCallsPayload(callsPayload);
   allCalls.forEach((call,index)=>{call.__index=index;});
   console.log('Loaded calls:', allCalls.length);
   console.log(allCalls.slice(0,3));
@@ -691,7 +666,7 @@ async function initDashboard(){try{
     nonEmptyDate: allCalls.filter((c)=>String(c.date||'').trim()!=='').length,
     nonEmptyTime: allCalls.filter((c)=>String(c.time||'').trim()!=='').length,
     nonEmptyManager: allCalls.filter((c)=>String(c.manager||'').trim()!=='').length
-  });if(!allCalls.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}populateManagers(allCalls);populateClientManagers(allCalls);renderClientCalls();bindFilters();bindClientCalls();updateGroupByAvailability(activePeriod);setGroupByForPeriod(activePeriod);hideNoData();applyFilters();}catch(error){console.log('Ошибка загрузки/обработки данных:',error);}}
+  });if(!allCalls.length){renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();return;}populateManagers(allCalls);populateClientManagers(allCalls);renderClientCalls();bindFilters();bindClientCalls();updateGroupByAvailability(activePeriod);setGroupByForPeriod(activePeriod);hideNoData();applyFilters();}catch(error){console.error('Ошибка загрузки/обработки данных:',error);els.emptyState.textContent='Не удалось загрузить данные с сервера';renderKpi({total:0,incoming:0,outgoing:0,missed:0,unanswered:0,dropped:0});destroyCharts();showNoData();}}
 bindAdminPanel();
 initDashboard();
 </script>
