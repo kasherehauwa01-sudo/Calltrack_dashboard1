@@ -39,5 +39,8 @@
     return requestJson(`${ENDPOINTS.dashboard}${buildQuery(filters)}`);
   }
 
-  window.calltrackApi={loadCalls,loadDashboard,endpoints:ENDPOINTS};
+  window.calltrackApi=window.calltrackApi||{};
+  window.calltrackApi.endpoints={...ENDPOINTS,...(window.calltrackApi.endpoints||{})};
+  window.calltrackApi.loadCalls=loadCalls;
+  window.calltrackApi.loadDashboard=loadDashboard;
 })();
