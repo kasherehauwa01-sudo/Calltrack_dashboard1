@@ -452,6 +452,11 @@ function sortRegistryCalls(calls){
   const column=registryColumns.find(([key])=>key===adminRegistrySort.key)||registryColumns[0];
   const dir=adminRegistrySort.direction==='asc'?1:-1;
   return [...calls].sort((a,b)=>{
+    if(adminRegistrySort.key==='call_date'){
+      const ad=getCallDateTime(a)?.getTime()||0;
+      const bd=getCallDateTime(b)?.getTime()||0;
+      return (ad-bd)*dir;
+    }
     const av=String(column[1](a)??'').toLowerCase();
     const bv=String(column[1](b)??'').toLowerCase();
     const an=Number(av),bn=Number(bv);
