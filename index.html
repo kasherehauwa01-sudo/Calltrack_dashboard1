@@ -35,6 +35,13 @@
     .registry-table{width:100%;border-collapse:collapse;min-width:1280px;font-size:.86rem}
     .registry-table th,.registry-table td{padding:10px 12px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top;white-space:nowrap}
     .registry-table th{position:sticky;top:0;background:#f8fafc;color:#4b5563;font-weight:600;z-index:1}
+    .registry-sort{border:0;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+    .registry-select-col{width:42px;text-align:center!important}.registry-checkbox{width:16px;height:16px;accent-color:#111827;cursor:pointer}
+    .registry-toolbar{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr)) auto;gap:10px;align-items:end}
+    .registry-filter{display:grid;gap:5px}.registry-filter label{font-size:.82rem;color:var(--muted)}
+    .registry-filter input,.registry-filter select{border:1px solid #d1d5db;border-radius:12px;padding:9px 10px;background:#fff;color:#111827;min-width:0}
+    .registry-delete-btn{border:0;border-radius:999px;background:#dc2626;color:#fff;padding:10px 16px;cursor:pointer;transition:.2s ease;white-space:nowrap}
+    .registry-delete-btn:hover{background:#b91c1c}.registry-delete-btn[hidden]{display:none}
     .registry-empty{padding:18px;color:var(--muted)}
 
     .filter-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:14px;border:1px solid #e5e7eb;display:grid;gap:10px}
@@ -218,6 +225,29 @@
           </div>
           <section class="admin-panel" id="adminRegistryPanel">
             <p>Полный список звонков из SQL таблицы calls.</p>
+            <div class="registry-toolbar">
+              <div class="registry-filter">
+                <label for="registryDateFilter">Дата</label>
+                <input id="registryDateFilter" type="date" />
+              </div>
+              <div class="registry-filter">
+                <label for="registryManagerFilter">Менеджер</label>
+                <select id="registryManagerFilter"><option value="">Все менеджеры</option></select>
+              </div>
+              <div class="registry-filter">
+                <label for="registryClientFilter">Клиент</label>
+                <select id="registryClientFilter"><option value="">Все клиенты</option></select>
+              </div>
+              <div class="registry-filter">
+                <label for="registryTypeFilter">Тип звонка</label>
+                <select id="registryTypeFilter"><option value="">Все типы</option></select>
+              </div>
+              <div class="registry-filter">
+                <label for="registryClientSearch">Поиск по клиенту</label>
+                <input id="registryClientSearch" type="search" placeholder="Введите клиента" />
+              </div>
+              <button class="registry-delete-btn" id="registryDeleteSelectedBtn" type="button" hidden>Удалить выделенные</button>
+            </div>
             <div class="registry-wrap" id="adminRegistryTable"><div class="registry-empty">Данные загружаются...</div></div>
           </section>
         </div>
@@ -267,9 +297,9 @@ window.calltrackApi.endpoints=window.calltrackApi.endpoints||{};
 const SQL_CALLS_API_URL=window.calltrackApi?.endpoints?.calls||'/vr/calltrack/api/get_calls.php';
 console.log('calltrackApi', window.calltrackApi);
 console.log('SQL_CALLS_API_URL', SQL_CALLS_API_URL);
-const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeClientPeriod='month'; let activeClientManager=''; let editingCallIndex=null; let isAdminUnlocked=false; let activeGroupBy='day'; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']);
+const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeClientPeriod='month'; let activeClientManager=''; let editingCallIndex=null; let isAdminUnlocked=false; let activeGroupBy='day'; let adminRegistrySort={key:'call_date',direction:'desc'}; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']); const selectedRegistryRows=new Set();
 const els={dashboardView:document.getElementById('dashboardView'),clientCallsView:document.getElementById('clientCallsView'),adminView:document.getElementById('adminView'),managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags'),clientManagerTags:document.getElementById('clientManagerTags'),clientPeriodShell:document.getElementById('clientPeriodShell'),clientDateFrom:document.getElementById('clientDateFrom'),clientDateTo:document.getElementById('clientDateTo'),clientApplyRangeBtn:document.getElementById('clientApplyRangeBtn'),clientCallsList:document.getElementById('clientCallsList'),commentModal:document.getElementById('commentModal'),commentInfo:document.getElementById('commentInfo'),commentText:document.getElementById('commentText'),reminderText:document.getElementById('reminderText'),reminderAt:document.getElementById('reminderAt'),commentSaveStatus:document.getElementById('commentSaveStatus'),commentCancelBtn:document.getElementById('commentCancelBtn'),commentSaveBtn:document.getElementById('commentSaveBtn'),clientHistoryModal:document.getElementById('clientHistoryModal'),clientHistoryInfo:document.getElementById('clientHistoryInfo'),clientHistoryList:document.getElementById('clientHistoryList'),clientHistoryCloseBtn:document.getElementById('clientHistoryCloseBtn')};
-const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError'),subtabs:document.querySelectorAll('.admin-subtab'),registryPanel:document.getElementById('adminRegistryPanel'),registryTable:document.getElementById('adminRegistryTable')};
+const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError'),subtabs:document.querySelectorAll('.admin-subtab'),registryPanel:document.getElementById('adminRegistryPanel'),registryTable:document.getElementById('adminRegistryTable'),registryDateFilter:document.getElementById('registryDateFilter'),registryManagerFilter:document.getElementById('registryManagerFilter'),registryClientFilter:document.getElementById('registryClientFilter'),registryTypeFilter:document.getElementById('registryTypeFilter'),registryClientSearch:document.getElementById('registryClientSearch'),registryDeleteSelectedBtn:document.getElementById('registryDeleteSelectedBtn')};
 const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>new Date(year, monthIndex, day, hours, minutes, seconds, 0);
 const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
 const endOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
@@ -338,34 +368,114 @@ function bindAdminPanel(){
   adminEls.loginBtn.addEventListener('click',unlockAdminPanel);
   adminEls.password.addEventListener('keydown',(e)=>{if(e.key==='Enter') unlockAdminPanel();});
   adminEls.subtabs.forEach((btn)=>btn.addEventListener('click',()=>setActiveAdminTab(btn.dataset.adminTab)));
+  [adminEls.registryDateFilter,adminEls.registryManagerFilter,adminEls.registryClientFilter,adminEls.registryTypeFilter,adminEls.registryClientSearch].forEach((control)=>{
+    control.addEventListener('input',()=>renderAdminRegistry());
+    control.addEventListener('change',()=>renderAdminRegistry());
+  });
+  adminEls.registryTable.addEventListener('click',(e)=>{
+    const sortBtn=e.target.closest('.registry-sort');
+    if(sortBtn){setRegistrySort(sortBtn.dataset.key);return;}
+  });
+  adminEls.registryTable.addEventListener('change',(e)=>{
+    const checkbox=e.target.closest('.registry-checkbox');
+    if(!checkbox) return;
+    if(checkbox.dataset.selectAll){
+      getAdminFilteredCalls().forEach((call)=>{const key=getRegistryRowKey(call); if(checkbox.checked) selectedRegistryRows.add(key); else selectedRegistryRows.delete(key);});
+    }else if(checkbox.checked){
+      selectedRegistryRows.add(checkbox.value);
+    }else{
+      selectedRegistryRows.delete(checkbox.value);
+    }
+    updateRegistryDeleteButton();
+    renderAdminRegistry();
+  });
+  adminEls.registryDeleteSelectedBtn.addEventListener('click',deleteSelectedRegistryRows);
 }
 
 function setActiveAdminTab(tab){
   adminEls.subtabs.forEach((btn)=>btn.classList.toggle('active',btn.dataset.adminTab===tab));
   adminEls.registryPanel.hidden=tab!=='registry';
 }
-function renderAdminRegistry(calls=allCalls){
-  const columns=[
-    ['id',(call)=>call.sqlId],
-    ['call_date',(call)=>call.date],
-    ['call_time',(call)=>call.time],
-    ['phone',(call)=>formatPhoneForDisplay(call.phone)||call.phone],
-    ['call_type',(call)=>call.type],
-    ['duration',(call)=>call.duration],
-    ['manager',(call)=>call.manager],
-    ['comment',(call)=>call.note],
-    ['tag',(call)=>call.tag],
-    ['reminder',(call)=>call.reminder],
-    ['reminder_text',(call)=>call.reminderText],
-    ['client',(call)=>call.client],
-    ['call_id',(call)=>call.id],
-    ['user_phone',(call)=>formatPhoneForDisplay(call.userPhone)||call.userPhone],
-    ['created_at',(call)=>call.createdAt],
-    ['updated_at',(call)=>call.updatedAt]
-  ];
+const registryColumns=[
+  ['id',(call)=>call.sqlId],
+  ['call_date',(call)=>call.date],
+  ['call_time',(call)=>call.time],
+  ['phone',(call)=>formatPhoneForDisplay(call.phone)||call.phone],
+  ['call_type',(call)=>call.type],
+  ['duration',(call)=>call.duration],
+  ['manager',(call)=>call.manager],
+  ['comment',(call)=>call.note],
+  ['tag',(call)=>call.tag],
+  ['reminder',(call)=>call.reminder],
+  ['reminder_text',(call)=>call.reminderText],
+  ['client',(call)=>call.client],
+  ['call_id',(call)=>call.id],
+  ['user_phone',(call)=>formatPhoneForDisplay(call.userPhone)||call.userPhone],
+  ['created_at',(call)=>call.createdAt],
+  ['updated_at',(call)=>call.updatedAt]
+];
+function getRegistryRowKey(call){return String(call.sqlId||call.id||call.__index||'')}
+function updateRegistryDeleteButton(){adminEls.registryDeleteSelectedBtn.hidden=selectedRegistryRows.size===0;}
+function updateRegistryFilterOptions(){
+  const keep={manager:adminEls.registryManagerFilter.value,client:adminEls.registryClientFilter.value,type:adminEls.registryTypeFilter.value};
+  const makeOptions=(values,empty)=>`<option value="">${empty}</option>${values.map((value)=>`<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('')}`;
+  const managers=[...new Set(allCalls.map((call)=>String(call.manager||'').trim()).filter(Boolean))].sort();
+  const clients=[...new Set(allCalls.map((call)=>String(call.client||'').trim()).filter(Boolean))].sort();
+  const types=[...new Set(allCalls.map((call)=>String(call.type||'').trim()).filter(Boolean))].sort();
+  adminEls.registryManagerFilter.innerHTML=makeOptions(managers,'Все менеджеры');
+  adminEls.registryClientFilter.innerHTML=makeOptions(clients,'Все клиенты');
+  adminEls.registryTypeFilter.innerHTML=makeOptions(types,'Все типы');
+  adminEls.registryManagerFilter.value=managers.includes(keep.manager)?keep.manager:'';
+  adminEls.registryClientFilter.value=clients.includes(keep.client)?keep.client:'';
+  adminEls.registryTypeFilter.value=types.includes(keep.type)?keep.type:'';
+}
+function getAdminFilteredCalls(){
+  const date=adminEls.registryDateFilter.value;
+  const manager=adminEls.registryManagerFilter.value;
+  const client=adminEls.registryClientFilter.value;
+  const type=adminEls.registryTypeFilter.value;
+  const search=adminEls.registryClientSearch.value.trim().toLowerCase();
+  return allCalls.filter((call)=>{
+    if(date&&(normalizeDate(call.date)||'')!==date) return false;
+    if(manager&&String(call.manager||'')!==manager) return false;
+    if(client&&String(call.client||'')!==client) return false;
+    if(type&&String(call.type||'')!==type) return false;
+    if(search&&!String(call.client||'').toLowerCase().includes(search)) return false;
+    return true;
+  });
+}
+function setRegistrySort(key){
+  adminRegistrySort=adminRegistrySort.key===key?{key,direction:adminRegistrySort.direction==='asc'?'desc':'asc'}:{key,direction:'asc'};
+  renderAdminRegistry();
+}
+function sortRegistryCalls(calls){
+  const column=registryColumns.find(([key])=>key===adminRegistrySort.key)||registryColumns[0];
+  const dir=adminRegistrySort.direction==='asc'?1:-1;
+  return [...calls].sort((a,b)=>{
+    const av=String(column[1](a)??'').toLowerCase();
+    const bv=String(column[1](b)??'').toLowerCase();
+    const an=Number(av),bn=Number(bv);
+    if(!Number.isNaN(an)&&!Number.isNaN(bn)) return (an-bn)*dir;
+    return av.localeCompare(bv,'ru',{numeric:true})*dir;
+  });
+}
+function deleteSelectedRegistryRows(){
+  if(!selectedRegistryRows.size) return;
+  allCalls=allCalls.filter((call)=>!selectedRegistryRows.has(getRegistryRowKey(call)));
+  selectedRegistryRows.clear();
+  renderAdminRegistry();
+  renderClientCalls();
+  applyFilters();
+}
+function renderAdminRegistry(){
+  updateRegistryFilterOptions();
+  const calls=sortRegistryCalls(getAdminFilteredCalls());
+  updateRegistryDeleteButton();
   if(!calls.length){adminEls.registryTable.innerHTML='<div class="registry-empty">В реестре пока нет данных</div>';return;}
-  const head=columns.map(([label])=>`<th>${escapeHtml(label)}</th>`).join('');
-  const body=calls.map((call)=>`<tr>${columns.map(([,getter])=>`<td>${escapeHtml(getter(call)||'')}</td>`).join('')}</tr>`).join('');
+  const allChecked=calls.every((call)=>selectedRegistryRows.has(getRegistryRowKey(call)));
+  const sortMark=(key)=>adminRegistrySort.key===key?(adminRegistrySort.direction==='asc'?'↑':'↓'):'↕';
+  const head=`<th class="registry-select-col"><input class="registry-checkbox" data-select-all="1" type="checkbox" ${allChecked?'checked':''} aria-label="Выбрать все строки" /></th>${registryColumns.map(([label])=>`<th><button class="registry-sort" data-key="${escapeHtml(label)}" type="button">${escapeHtml(label)} <span>${sortMark(label)}</span></button></th>`).join('')}`;
+  const body=calls.map((call)=>{const key=getRegistryRowKey(call);return `<tr><td class="registry-select-col"><input class="registry-checkbox" type="checkbox" value="${escapeHtml(key)}" ${selectedRegistryRows.has(key)?'checked':''} aria-label="Выбрать строку" /></td>${registryColumns.map(([,getter])=>`<td>${escapeHtml(getter(call)||'')}</td>`).join('')}</tr>`;}).join('');
   adminEls.registryTable.innerHTML=`<table class="registry-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
