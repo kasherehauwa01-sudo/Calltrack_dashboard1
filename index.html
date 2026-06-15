@@ -474,12 +474,14 @@ async function deleteSelectedRegistryRows(){
   adminEls.registryDeleteSelectedBtn.textContent='Удаление...';
   try{
     if(window.calltrackApi?.deleteCalls){
-      await window.calltrackApi.deleteCalls(selectedCalls.map((call)=>({sqlId:call.sqlId,call_id:call.id,id:call.id})));
+      await window.calltrackApi.deleteCalls(selectedCalls.map((call)=>({sqlId:call.sqlId,call_id:call.id})));
     }else{
       const ids=selectedCalls.map((call)=>call.sqlId).filter(Boolean);
       const callIds=selectedCalls.map((call)=>call.id).filter(Boolean);
-      const response=await fetch(SQL_CALLS_API_URL,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,call_ids:callIds})});
-      if(!response.ok) throw new Error(`API ${response.status}: ${SQL_CALLS_API_URL}`);
+      const response=await fetch('/vr/calltrack/api/delete_calls.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,call_ids:callIds})});
+      if(!response.ok) throw new Error(`API ${response.status}: /vr/calltrack/api/delete_calls.php`);
+      const data=await response.json().catch(()=>null);
+      if(Array.isArray(data)||data?.status==='error') throw new Error(data?.message||'DELETE_NOT_CONFIRMED');
     }
     allCalls=allCalls.filter((call)=>!selectedRegistryRows.has(getRegistryRowKey(call)));
     selectedRegistryRows.clear();
