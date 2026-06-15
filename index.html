@@ -464,16 +464,36 @@ function sortRegistryCalls(calls){
     return av.localeCompare(bv,'ru',{numeric:true})*dir;
   });
 }
-function deleteSelectedRegistryRows(){
+async function deleteSelectedRegistryRows(){
   if(!selectedRegistryRows.size) return;
-  const count=selectedRegistryRows.size;
-  const confirmed=window.confirm(`Удалить выделенные строки (${count}) из реестра?`);
+  const selectedCalls=allCalls.filter((call)=>selectedRegistryRows.has(getRegistryRowKey(call)));
+  const count=selectedCalls.length;
+  const confirmed=window.confirm(`Удалить выделенные строки (${count}) из реестра и SQL таблицы?`);
   if(!confirmed) return;
-  allCalls=allCalls.filter((call)=>!selectedRegistryRows.has(getRegistryRowKey(call)));
-  selectedRegistryRows.clear();
-  renderAdminRegistry();
-  renderClientCalls();
-  applyFilters();
+  adminEls.registryDeleteSelectedBtn.disabled=true;
+  adminEls.registryDeleteSelectedBtn.textContent='Удаление...';
+  try{
+    if(window.calltrackApi?.deleteCalls){
+      await window.calltrackApi.deleteCalls(selectedCalls.map((call)=>({sqlId:call.sqlId,call_id:call.id,id:call.id})));
+    }else{
+      const ids=selectedCalls.map((call)=>call.sqlId).filter(Boolean);
+      const callIds=selectedCalls.map((call)=>call.id).filter(Boolean);
+      const response=await fetch(SQL_CALLS_API_URL,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,call_ids:callIds})});
+      if(!response.ok) throw new Error(`API ${response.status}: ${SQL_CALLS_API_URL}`);
+    }
+    allCalls=allCalls.filter((call)=>!selectedRegistryRows.has(getRegistryRowKey(call)));
+    selectedRegistryRows.clear();
+    renderAdminRegistry();
+    renderClientCalls();
+    applyFilters();
+  }catch(error){
+    console.error('Ошибка удаления строк из SQL:',error);
+    window.alert('Не удалось удалить выбранные строки из SQL таблицы');
+  }finally{
+    adminEls.registryDeleteSelectedBtn.disabled=false;
+    adminEls.registryDeleteSelectedBtn.textContent='Удалить выделенные';
+    updateRegistryDeleteButton();
+  }
 }
 function renderAdminRegistry(){
   updateRegistryFilterOptions();

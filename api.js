@@ -39,8 +39,25 @@
     return requestJson(`${ENDPOINTS.dashboard}${buildQuery(filters)}`);
   }
 
+  async function deleteCalls(records=[]){
+    const ids=records.map((record)=>record.sqlId||record.id||record.ID).filter(Boolean);
+    const callIds=records.map((record)=>record.callId||record.call_id||record.id).filter(Boolean);
+    const payload={ids,call_ids:callIds};
+    const options={headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)};
+    try{
+      const data=await requestJson(ENDPOINTS.calls,{...options,method:'DELETE'});
+      if(data?.status==='error') throw new Error(data.message||'DELETE_ERROR');
+      return data;
+    }catch(deleteError){
+      const data=await requestJson(ENDPOINTS.calls,{...options,method:'POST',body:JSON.stringify({action:'delete',...payload})});
+      if(data?.status==='error') throw new Error(data.message||'DELETE_ERROR');
+      return data;
+    }
+  }
+
   window.calltrackApi=window.calltrackApi||{};
   window.calltrackApi.endpoints={...ENDPOINTS,...(window.calltrackApi.endpoints||{})};
   window.calltrackApi.loadCalls=loadCalls;
   window.calltrackApi.loadDashboard=loadDashboard;
+  window.calltrackApi.deleteCalls=deleteCalls;
 })();
