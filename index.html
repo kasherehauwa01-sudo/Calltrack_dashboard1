@@ -227,16 +227,16 @@
             <p>Полный список звонков из SQL таблицы calls.</p>
             <div class="registry-toolbar">
               <div class="registry-filter">
-                <label for="registryDateFilter">Дата</label>
-                <input id="registryDateFilter" type="date" />
+                <label for="registryDateFromFilter">Начало периода</label>
+                <input id="registryDateFromFilter" type="date" />
+              </div>
+              <div class="registry-filter">
+                <label for="registryDateToFilter">Конец периода</label>
+                <input id="registryDateToFilter" type="date" />
               </div>
               <div class="registry-filter">
                 <label for="registryManagerFilter">Менеджер</label>
                 <select id="registryManagerFilter"><option value="">Все менеджеры</option></select>
-              </div>
-              <div class="registry-filter">
-                <label for="registryClientFilter">Клиент</label>
-                <select id="registryClientFilter"><option value="">Все клиенты</option></select>
               </div>
               <div class="registry-filter">
                 <label for="registryTypeFilter">Тип звонка</label>
@@ -299,7 +299,7 @@ console.log('calltrackApi', window.calltrackApi);
 console.log('SQL_CALLS_API_URL', SQL_CALLS_API_URL);
 const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeClientPeriod='month'; let activeClientManager=''; let editingCallIndex=null; let isAdminUnlocked=false; let activeGroupBy='day'; let adminRegistrySort={key:'call_date',direction:'desc'}; let periodReferenceDate=null; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']); const selectedRegistryRows=new Set();
 const els={dashboardView:document.getElementById('dashboardView'),clientCallsView:document.getElementById('clientCallsView'),adminView:document.getElementById('adminView'),managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags'),clientManagerTags:document.getElementById('clientManagerTags'),clientPeriodShell:document.getElementById('clientPeriodShell'),clientDateFrom:document.getElementById('clientDateFrom'),clientDateTo:document.getElementById('clientDateTo'),clientApplyRangeBtn:document.getElementById('clientApplyRangeBtn'),clientCallsList:document.getElementById('clientCallsList'),commentModal:document.getElementById('commentModal'),commentInfo:document.getElementById('commentInfo'),commentText:document.getElementById('commentText'),reminderText:document.getElementById('reminderText'),reminderAt:document.getElementById('reminderAt'),commentSaveStatus:document.getElementById('commentSaveStatus'),commentCancelBtn:document.getElementById('commentCancelBtn'),commentSaveBtn:document.getElementById('commentSaveBtn'),clientHistoryModal:document.getElementById('clientHistoryModal'),clientHistoryInfo:document.getElementById('clientHistoryInfo'),clientHistoryList:document.getElementById('clientHistoryList'),clientHistoryCloseBtn:document.getElementById('clientHistoryCloseBtn')};
-const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError'),subtabs:document.querySelectorAll('.admin-subtab'),registryPanel:document.getElementById('adminRegistryPanel'),registryTable:document.getElementById('adminRegistryTable'),registryDateFilter:document.getElementById('registryDateFilter'),registryManagerFilter:document.getElementById('registryManagerFilter'),registryClientFilter:document.getElementById('registryClientFilter'),registryTypeFilter:document.getElementById('registryTypeFilter'),registryClientSearch:document.getElementById('registryClientSearch'),registryDeleteSelectedBtn:document.getElementById('registryDeleteSelectedBtn')};
+const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError'),subtabs:document.querySelectorAll('.admin-subtab'),registryPanel:document.getElementById('adminRegistryPanel'),registryTable:document.getElementById('adminRegistryTable'),registryDateFromFilter:document.getElementById('registryDateFromFilter'),registryDateToFilter:document.getElementById('registryDateToFilter'),registryManagerFilter:document.getElementById('registryManagerFilter'),registryTypeFilter:document.getElementById('registryTypeFilter'),registryClientSearch:document.getElementById('registryClientSearch'),registryDeleteSelectedBtn:document.getElementById('registryDeleteSelectedBtn')};
 const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>new Date(year, monthIndex, day, hours, minutes, seconds, 0);
 const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
 const endOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
@@ -369,7 +369,7 @@ function bindAdminPanel(){
   adminEls.loginBtn.addEventListener('click',unlockAdminPanel);
   adminEls.password.addEventListener('keydown',(e)=>{if(e.key==='Enter') unlockAdminPanel();});
   adminEls.subtabs.forEach((btn)=>btn.addEventListener('click',()=>setActiveAdminTab(btn.dataset.adminTab)));
-  [adminEls.registryDateFilter,adminEls.registryManagerFilter,adminEls.registryClientFilter,adminEls.registryTypeFilter,adminEls.registryClientSearch].forEach((control)=>{
+  [adminEls.registryDateFromFilter,adminEls.registryDateToFilter,adminEls.registryManagerFilter,adminEls.registryTypeFilter,adminEls.registryClientSearch].forEach((control)=>{
     control.addEventListener('input',()=>renderAdminRegistry());
     control.addEventListener('change',()=>renderAdminRegistry());
   });
@@ -418,28 +418,28 @@ const registryColumns=[
 function getRegistryRowKey(call){return String(call.sqlId||call.id||call.__index||'')}
 function updateRegistryDeleteButton(){adminEls.registryDeleteSelectedBtn.hidden=selectedRegistryRows.size===0;}
 function updateRegistryFilterOptions(){
-  const keep={manager:adminEls.registryManagerFilter.value,client:adminEls.registryClientFilter.value,type:adminEls.registryTypeFilter.value};
+  const keep={manager:adminEls.registryManagerFilter.value,type:adminEls.registryTypeFilter.value};
   const makeOptions=(values,empty)=>`<option value="">${empty}</option>${values.map((value)=>`<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('')}`;
   const managers=[...new Set(allCalls.map((call)=>String(call.manager||'').trim()).filter(Boolean))].sort();
-  const clients=[...new Set(allCalls.map((call)=>String(call.client||'').trim()).filter(Boolean))].sort();
   const types=[...new Set(allCalls.map((call)=>String(call.type||'').trim()).filter(Boolean))].sort();
   adminEls.registryManagerFilter.innerHTML=makeOptions(managers,'Все менеджеры');
-  adminEls.registryClientFilter.innerHTML=makeOptions(clients,'Все клиенты');
   adminEls.registryTypeFilter.innerHTML=makeOptions(types,'Все типы');
   adminEls.registryManagerFilter.value=managers.includes(keep.manager)?keep.manager:'';
-  adminEls.registryClientFilter.value=clients.includes(keep.client)?keep.client:'';
   adminEls.registryTypeFilter.value=types.includes(keep.type)?keep.type:'';
 }
 function getAdminFilteredCalls(){
-  const date=adminEls.registryDateFilter.value;
+  const dateFrom=adminEls.registryDateFromFilter.value;
+  const dateTo=adminEls.registryDateToFilter.value;
+  const from=dateFrom?startOfDay(parseLocalDate(dateFrom)):null;
+  const to=dateTo?endOfDay(parseLocalDate(dateTo)):null;
   const manager=adminEls.registryManagerFilter.value;
-  const client=adminEls.registryClientFilter.value;
   const type=adminEls.registryTypeFilter.value;
   const search=adminEls.registryClientSearch.value.trim().toLowerCase();
   return allCalls.filter((call)=>{
-    if(date&&(normalizeDate(call.date)||'')!==date) return false;
+    const callDate=getCallDateTime(call)||(normalizeDate(call.date)?parseLocalDate(normalizeDate(call.date)):null);
+    if(from&&(!callDate||callDate<from)) return false;
+    if(to&&(!callDate||callDate>to)) return false;
     if(manager&&String(call.manager||'')!==manager) return false;
-    if(client&&String(call.client||'')!==client) return false;
     if(type&&String(call.type||'')!==type) return false;
     if(search&&!String(call.client||'').toLowerCase().includes(search)) return false;
     return true;
