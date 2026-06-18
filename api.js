@@ -4,7 +4,8 @@
     calls:`${API_BASE}/get_calls.php`,
     dashboard:`${API_BASE}/dashboard.php`,
     deleteCalls:`${API_BASE}/delete_calls.php`,
-    deleteCall:`${API_BASE}/delete_call.php`
+    deleteCall:`${API_BASE}/delete_call.php`,
+    personalContacts:`${API_BASE}/get_personal_contacts.php`
   };
 
   function buildQuery(filters={}){
@@ -39,6 +40,10 @@
 
   async function loadDashboard(filters={}){
     return requestJson(`${ENDPOINTS.dashboard}${buildQuery(filters)}`);
+  }
+
+  async function loadPersonalContacts(filters={}){
+    return unwrapList(await requestJson(`${ENDPOINTS.personalContacts}${buildQuery(filters)}`));
   }
 
   function isDeleteSuccess(data){
@@ -89,5 +94,6 @@
   window.calltrackApi.endpoints={...ENDPOINTS,...(window.calltrackApi.endpoints||{})};
   window.calltrackApi.loadCalls=loadCalls;
   window.calltrackApi.loadDashboard=loadDashboard;
+  window.calltrackApi.loadPersonalContacts=loadPersonalContacts;
   window.calltrackApi.deleteCalls=deleteCalls;
 })();

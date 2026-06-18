@@ -43,6 +43,9 @@
     .registry-delete-btn{border:0;border-radius:999px;background:#dc2626;color:#fff;padding:10px 16px;cursor:pointer;transition:.2s ease;white-space:nowrap}
     .registry-delete-btn:hover{background:#b91c1c}.registry-delete-btn[hidden]{display:none}
     .registry-empty{padding:18px;color:var(--muted)}
+    .admin-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .refresh-btn{border:0;border-radius:999px;background:#111827;color:#fff;padding:10px 16px;cursor:pointer;transition:.2s ease}
+    .refresh-btn:hover{background:#374151}.flag-badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 10px;font-weight:600;font-size:.82rem}.flag-badge.personal{background:#dcfce7;color:#166534}.flag-badge.regular{background:#e5e7eb;color:#374151}
 
     .filter-card{background:var(--card);box-shadow:var(--shadow);border-radius:var(--radius);padding:14px;border:1px solid #e5e7eb;display:grid;gap:10px}
     .filter-title{color:var(--muted);font-size:.9rem}
@@ -222,6 +225,7 @@
           <h2>Админ панель</h2>
           <div class="admin-subtabs" role="tablist" aria-label="Разделы админ панели">
             <button class="admin-subtab active" data-admin-tab="registry" type="button">Реестр</button>
+            <button class="admin-subtab" data-admin-tab="personalContacts" type="button">Признаки контактов</button>
           </div>
           <section class="admin-panel" id="adminRegistryPanel">
             <p>Полный список звонков из SQL таблицы calls.</p>
@@ -249,6 +253,13 @@
               <button class="registry-delete-btn" id="registryDeleteSelectedBtn" type="button" hidden>Удалить выделенные</button>
             </div>
             <div class="registry-wrap" id="adminRegistryTable"><div class="registry-empty">Данные загружаются...</div></div>
+          </section>
+          <section class="admin-panel" id="adminPersonalContactsPanel" hidden>
+            <div class="admin-panel-head">
+              <p>Признаки контактов из SQL таблицы personal_contacts.</p>
+              <button class="refresh-btn" id="personalContactsRefreshBtn" type="button">Обновить</button>
+            </div>
+            <div class="registry-wrap" id="personalContactsTable"><div class="registry-empty">Данные загружаются...</div></div>
           </section>
         </div>
       </article>
@@ -297,9 +308,9 @@ window.calltrackApi.endpoints=window.calltrackApi.endpoints||{};
 const SQL_CALLS_API_URL=window.calltrackApi?.endpoints?.calls||'/vr/calltrack/api/get_calls.php';
 console.log('calltrackApi', window.calltrackApi);
 console.log('SQL_CALLS_API_URL', SQL_CALLS_API_URL);
-const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeClientPeriod='month'; let activeClientManager=''; let editingCallIndex=null; let isAdminUnlocked=false; let activeGroupBy='day'; let adminRegistrySort={key:'call_date',direction:'desc'}; let periodReferenceDate=null; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']); const selectedRegistryRows=new Set();
+const chartInstances=[]; let allCalls=[]; let activePeriod='month'; let activeClientPeriod='month'; let activeClientManager=''; let editingCallIndex=null; let isAdminUnlocked=false; let activeGroupBy='day'; let adminRegistrySort={key:'call_date',direction:'desc'}; let periodReferenceDate=null; let personalContacts=[]; let personalContactsLoaded=false; const activeManagers=new Set(); const activeCallTypes=new Set(['Входящий','Исходящий','Пропущенные','Неотвеченные','Сброшенные']); const selectedRegistryRows=new Set();
 const els={dashboardView:document.getElementById('dashboardView'),clientCallsView:document.getElementById('clientCallsView'),adminView:document.getElementById('adminView'),managerTags:document.getElementById('managerTags'),groupByFilter:document.getElementById('groupByFilter'),periodShell:document.getElementById('periodShell'),dateFrom:document.getElementById('dateFrom'),dateTo:document.getElementById('dateTo'),applyCustomRangeBtn:document.getElementById('applyCustomRangeBtn'),trendTitle:document.getElementById('trendTitle'),kpiTotal:document.getElementById('kpiTotal'),kpiIncoming:document.getElementById('kpiIncoming'),kpiOutgoing:document.getElementById('kpiOutgoing'),kpiMissed:document.getElementById('kpiMissed'),kpiUnanswered:document.getElementById('kpiUnanswered'),kpiDropped:document.getElementById('kpiDropped'),emptyState:document.getElementById('emptyState'),chartsGrid:document.getElementById('chartsGrid'),callTypeTags:document.getElementById('callTypeTags'),clientManagerTags:document.getElementById('clientManagerTags'),clientPeriodShell:document.getElementById('clientPeriodShell'),clientDateFrom:document.getElementById('clientDateFrom'),clientDateTo:document.getElementById('clientDateTo'),clientApplyRangeBtn:document.getElementById('clientApplyRangeBtn'),clientCallsList:document.getElementById('clientCallsList'),commentModal:document.getElementById('commentModal'),commentInfo:document.getElementById('commentInfo'),commentText:document.getElementById('commentText'),reminderText:document.getElementById('reminderText'),reminderAt:document.getElementById('reminderAt'),commentSaveStatus:document.getElementById('commentSaveStatus'),commentCancelBtn:document.getElementById('commentCancelBtn'),commentSaveBtn:document.getElementById('commentSaveBtn'),clientHistoryModal:document.getElementById('clientHistoryModal'),clientHistoryInfo:document.getElementById('clientHistoryInfo'),clientHistoryList:document.getElementById('clientHistoryList'),clientHistoryCloseBtn:document.getElementById('clientHistoryCloseBtn')};
-const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError'),subtabs:document.querySelectorAll('.admin-subtab'),registryPanel:document.getElementById('adminRegistryPanel'),registryTable:document.getElementById('adminRegistryTable'),registryDateFromFilter:document.getElementById('registryDateFromFilter'),registryDateToFilter:document.getElementById('registryDateToFilter'),registryManagerFilter:document.getElementById('registryManagerFilter'),registryTypeFilter:document.getElementById('registryTypeFilter'),registryClientSearch:document.getElementById('registryClientSearch'),registryDeleteSelectedBtn:document.getElementById('registryDeleteSelectedBtn')};
+const adminEls={tabs:document.querySelectorAll('.tab-btn'),lock:document.getElementById('adminLock'),content:document.getElementById('adminContent'),password:document.getElementById('adminPassword'),loginBtn:document.getElementById('adminLoginBtn'),error:document.getElementById('adminError'),subtabs:document.querySelectorAll('.admin-subtab'),registryPanel:document.getElementById('adminRegistryPanel'),registryTable:document.getElementById('adminRegistryTable'),registryDateFromFilter:document.getElementById('registryDateFromFilter'),registryDateToFilter:document.getElementById('registryDateToFilter'),registryManagerFilter:document.getElementById('registryManagerFilter'),registryTypeFilter:document.getElementById('registryTypeFilter'),registryClientSearch:document.getElementById('registryClientSearch'),registryDeleteSelectedBtn:document.getElementById('registryDeleteSelectedBtn'),personalContactsPanel:document.getElementById('adminPersonalContactsPanel'),personalContactsTable:document.getElementById('personalContactsTable'),personalContactsRefreshBtn:document.getElementById('personalContactsRefreshBtn')};
 const createLocalDate=(year, monthIndex, day, hours=0, minutes=0, seconds=0)=>new Date(year, monthIndex, day, hours, minutes, seconds, 0);
 const startOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
 const endOfDay=(date)=>createLocalDate(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
@@ -391,11 +402,54 @@ function bindAdminPanel(){
     renderAdminRegistry();
   });
   adminEls.registryDeleteSelectedBtn.addEventListener('click',deleteSelectedRegistryRows);
+  adminEls.personalContactsRefreshBtn.addEventListener('click',()=>loadPersonalContacts(true));
 }
 
 function setActiveAdminTab(tab){
   adminEls.subtabs.forEach((btn)=>btn.classList.toggle('active',btn.dataset.adminTab===tab));
   adminEls.registryPanel.hidden=tab!=='registry';
+  adminEls.personalContactsPanel.hidden=tab!=='personalContacts';
+  if(tab==='personalContacts') loadPersonalContacts();
+}
+function mapPersonalContact(record){
+  return {
+    userPhone: record.user_phone || record.userPhone || '',
+    manager: record.manager || '',
+    contactPhone: record.contact_phone || record.contactPhone || '',
+    updatedAt: record.updated_at || record.updatedAt || '',
+    personalFlag: Number(record.personal_flag ?? record.personalFlag ?? 0)
+  };
+}
+async function loadPersonalContacts(force=false){
+  if(personalContactsLoaded&&!force){renderPersonalContacts();return;}
+  adminEls.personalContactsTable.innerHTML='<div class="registry-empty">Данные загружаются...</div>';
+  adminEls.personalContactsRefreshBtn.disabled=true;
+  adminEls.personalContactsRefreshBtn.textContent='Загрузка...';
+  try{
+    const payload=window.calltrackApi?.loadPersonalContacts
+      ? await window.calltrackApi.loadPersonalContacts()
+      : await fetch('/vr/calltrack/api/get_personal_contacts.php').then((response)=>{if(!response.ok) throw new Error(`API ${response.status}: /vr/calltrack/api/get_personal_contacts.php`); return response.json();});
+    const rows=Array.isArray(payload)?payload:(Array.isArray(payload?.data)?payload.data:(Array.isArray(payload?.contacts)?payload.contacts:[]));
+    personalContacts=rows.map(mapPersonalContact);
+    personalContactsLoaded=true;
+    renderPersonalContacts();
+  }catch(error){
+    console.error('Ошибка загрузки признаков контактов:',error);
+    adminEls.personalContactsTable.innerHTML='<div class="registry-empty">Не удалось загрузить признаки контактов</div>';
+  }finally{
+    adminEls.personalContactsRefreshBtn.disabled=false;
+    adminEls.personalContactsRefreshBtn.textContent='Обновить';
+  }
+}
+function renderPersonalContacts(){
+  if(!personalContacts.length){adminEls.personalContactsTable.innerHTML='<div class="registry-empty">Нет данных по признакам контактов</div>';return;}
+  const head=['user_phone','manager','contact_phone','updated_at','personal_flag'].map((label)=>`<th>${escapeHtml(label)}</th>`).join('');
+  const body=personalContacts.map((contact)=>{
+    const isPersonal=contact.personalFlag===1;
+    const flag=`<span class="flag-badge ${isPersonal?'personal':'regular'}">${isPersonal?'Личный':'Обычный'}</span>`;
+    return `<tr><td>${escapeHtml(formatPhoneForDisplay(contact.userPhone)||contact.userPhone)}</td><td>${escapeHtml(contact.manager)}</td><td>${escapeHtml(formatPhoneForDisplay(contact.contactPhone)||contact.contactPhone)}</td><td>${escapeHtml(formatDateDisplay(contact.updatedAt)||contact.updatedAt)}</td><td>${flag}</td></tr>`;
+  }).join('');
+  adminEls.personalContactsTable.innerHTML=`<table class="registry-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 const registryColumns=[
   ['id',(call)=>call.sqlId],
